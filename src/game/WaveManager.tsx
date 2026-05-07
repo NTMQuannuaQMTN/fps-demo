@@ -5,17 +5,17 @@ import { ExpOrb } from "./ExpOrb"
 import { useProgressionStore } from "./useProgressionStore"
 import * as THREE from "three"
 
-const WAVE_DURATION = 120
 const BREAK_TIME = 10
 
 export function WaveManager() {
   const [wave, setWave] = useState(1)
-  const [time, setTime] = useState(WAVE_DURATION)
   const [zombies, setZombies] = useState<any[]>([])
   const [orbs, setOrbs] = useState<any[]>([])
   const [spawning, setSpawning] = useState(true)
 
   const paused = useProgressionStore((s) => s.paused)
+  const gameOver = useGameStore((s) => s.gameOver)
+  const mobsLeft = useGameStore((s) => s.mobsLeft)
   const setMobsLeft = useGameStore((s) => s.setMobsLeft)
 
   const aliveCount = useRef(0)
@@ -33,16 +33,16 @@ export function WaveManager() {
 
   // 🧟 SPAWN LOGIC
   useEffect(() => {
-    if (!spawning || paused) return
+    if (!spawning || paused || gameOver) return
 
     const total = wave * 5
-    setMobsLeft(total)
     let spawned = 0
 
     const interval = setInterval(() => {
-      if (paused) return
+      if (paused || gameOver) return
 
       if (spawned >= total) {
+        setSpawning(false)
         clearInterval(interval)
         return
       }
@@ -65,31 +65,18 @@ export function WaveManager() {
     }, 700)
 
     return () => clearInterval(interval)
-  }, [wave, spawning, paused])
+  }, [wave, spawning, paused, gameOver])
 
-  // ⏱ TIMER
+  // Keep mobsLeft equal to enemies currently alive on battlefield.
   useEffect(() => {
-    const timer = setInterval(() => {
-      if (paused) return
-
-      setTime((t) => {
-        if (t <= 1) {
-          setSpawning(false)
-          return 0
-        }
-        return t - 1
-      })
-    }, 1000)
-
-    return () => clearInterval(timer)
-  }, [paused])
+    setMobsLeft(zombies.length)
+  }, [zombies.length, setMobsLeft])
 
   // 🧠 WAVE TRANSITION (SINGLE SOURCE OF TRUTH)
   useEffect(() => {
-    if (waveTransitionInProgress.current) return
+    if (waveTransitionInProgress.current || gameOver) return
 
-    const waveFinished =
-      (!spawning && zombies.length === 0) || time === 0
+    const waveFinished = !spawning && mobsLeft === 0
 
     if (!waveFinished) return
 
@@ -97,8 +84,8 @@ export function WaveManager() {
 
     const timeout = setTimeout(() => {
       setWave((w) => w + 1)
-      setTime(WAVE_DURATION)
       setSpawning(true)
+      aliveCount.current = 0
       waveTransitionInProgress.current = false
     }, BREAK_TIME * 1000)
 
@@ -106,7 +93,7 @@ export function WaveManager() {
       clearTimeout(timeout)
       waveTransitionInProgress.current = false
     }
-  }, [spawning, zombies.length, time])
+  }, [spawning, mobsLeft, gameOver])
 
   return (
     <>
@@ -120,7 +107,6 @@ export function WaveManager() {
               prev.filter((p) => p.id !== z.id)
             )
             aliveCount.current--
-            setMobsLeft((m) => Math.max(0, m - 1))
           }}
         />
       ))}

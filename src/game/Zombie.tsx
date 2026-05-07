@@ -11,11 +11,13 @@ export function Zombie({ position, onDeath }: any) {
 
     const setHp = useGameStore((s) => s.setHp)
     const addKill = useGameStore((s) => s.addKill)
+    const recordCombatAction = useGameStore((s) => s.recordCombatAction)
     const addEntity = useEntityStore((s) => s.add)
     const removeEntity = useEntityStore((s) => s.remove)
     const addExp = useProgressionStore((s) => s.addExp)
     const luck = useProgressionStore((s) => s.stats.luck)
     const paused = useProgressionStore((s) => s.paused)
+    const gameOver = useGameStore((s) => s.gameOver)
 
     const id = useRef(crypto.randomUUID())
     const hp = useRef(100)
@@ -62,7 +64,7 @@ export function Zombie({ position, onDeath }: any) {
     }, [])
 
     useFrame((_, delta) => {
-        if (paused) return
+        if (paused || gameOver) return
 
         if (!ref.current || dead.current) return
 
@@ -79,6 +81,7 @@ export function Zombie({ position, onDeath }: any) {
             pos.addScaledVector(dir, delta * 2)
         } else {
             setHp((h) => h - 5 * delta)
+            recordCombatAction()
         }
     })
 

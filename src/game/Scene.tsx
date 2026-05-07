@@ -3,6 +3,8 @@ import { PointerLockControls } from "@react-three/drei"
 import { Player } from "./Player"
 import { WaveManager } from "./WaveManager"
 import { useProgressionStore } from "./useProgressionStore"
+import { useGameStore } from "./useGameStore"
+import { Crate } from "./Crate"
 
 const props = [
   { position: [-14, 0.5, -8], scale: [2, 1, 2], color: "#8a735c" },
@@ -24,13 +26,22 @@ const props = [
   { position: [30, 0.5, -5], scale: [2, 1, 2], color: "#7d6f5c" },
 ]
 
+const crates: Array<[number, number, number]> = [
+  [-10, 0.6, 12],
+  [8, 0.6, -14],
+  [22, 0.6, 6],
+]
+
 export default function Scene() {
   const paused = useProgressionStore((s) => s.paused)
+  const gameOver = useGameStore((s) => s.gameOver)
+  const sessionId = useGameStore((s) => s.sessionId)
   return (
     <Canvas
+      key={sessionId}
       shadows
       camera={{ fov: 75, position: [0, 1.6, 5] }}
-      style={{ width: "100vw", height: "100vh", display: "block", pointerEvents: paused ? "none" : "auto" }}
+      style={{ width: "100vw", height: "100vh", display: "block", pointerEvents: paused || gameOver ? "none" : "auto" }}
     >
       {/* Cyberpunk night sky */}
       <color attach="background" args={["#0b0620"]} />
@@ -69,10 +80,23 @@ export default function Scene() {
         </mesh>
       ))}
 
+      {crates.map((position, index) => (
+        <group
+          key={`crate-${index}`}
+          ref={(g) => {
+            if (!g) return
+            if (!(window as any).colliders) (window as any).colliders = []
+            if (!(window as any).colliders.includes(g)) (window as any).colliders.push(g)
+          }}
+        >
+          <Crate position={position} />
+        </group>
+      ))}
+
       <Player />
       <WaveManager />
 
-      {!paused && <PointerLockControls />}
+      {!paused && !gameOver && <PointerLockControls />}
     </Canvas>
   )
 }

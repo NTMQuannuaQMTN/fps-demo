@@ -19,6 +19,7 @@ type State = {
 
     addExp: (amount: number) => void
     pickUpgrade: (stat: Stat) => void
+    resetProgression: () => void
 }
 
 const randomChoices = (): Stat[] => {
@@ -72,6 +73,22 @@ export const useProgressionStore = create<State>((set, get) => ({
                 paused: false,
                 choices: [],
             }
+        })
+    },
+
+    resetProgression: () => {
+        set({
+            exp: 0,
+            level: 1,
+            nextExp: 10,
+            stats: {
+                speed: 1,
+                defense: 0,
+                luck: 0,
+                hp: 100,
+            },
+            paused: false,
+            choices: [],
         })
     },
 }))

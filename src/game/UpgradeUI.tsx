@@ -28,7 +28,7 @@ export function UpgradeUI() {
     return (
         <div style={styles.overlay}>
             <div style={styles.box}>
-                <h2>Choose Upgrade</h2>
+                <h2 style={{color: 'white'}}>Choose Upgrade</h2>
                 {choices.map((c) => (
                     <button key={c} style={styles.button} onClick={() => pickUpgrade(c)}>
                         {c.toUpperCase()}
