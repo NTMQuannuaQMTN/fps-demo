@@ -318,7 +318,7 @@ export function Player() {
             // RECOIL
             // =========================
 
-            recoilRef.current.y +=
+            recoilRef.current.y -=
                 weapon.recoil.vertical *
                 10
 
@@ -620,104 +620,213 @@ export function Player() {
             (window as any)
                 .colliders || []
 
-        const playerRadius =
-            0.6
+        const playerHeight = 1.6
+        const playerRadius = 0.6
+        const epsilon = 0.001
 
-        // X movement
-        const moveX =
-            new THREE.Vector3(
-                velocity.current.x *
-                    delta,
-                0,
-                0
+        const getPlayerBox = (
+            position: THREE.Vector3
+        ) =>
+            new THREE.Box3(
+                new THREE.Vector3(
+                    position.x -
+                        playerRadius,
+                    position.y -
+                        playerHeight,
+                    position.z -
+                        playerRadius
+                ),
+                new THREE.Vector3(
+                    position.x +
+                        playerRadius,
+                    position.y,
+                    position.z +
+                        playerRadius
+                )
             )
 
-        const proposedX =
-            camera.position
-                .clone()
-                .add(moveX)
+        const resolveCollisions = (
+            start: THREE.Vector3
+        ) => {
+            const resolved =
+                start.clone()
+            let grounded = false
 
-        let blockedX = false
-
-        for (const c of colliders) {
-            if (!c) continue
-
-            const box =
-                new THREE.Box3().setFromObject(
-                    c
-                )
-
-            if (
-                box.distanceToPoint(
-                    proposedX
-                ) < playerRadius
+            for (
+                let i = 0;
+                i < 4;
+                i += 1
             ) {
-                blockedX = true
-                break
+                const playerBox =
+                    getPlayerBox(
+                        resolved
+                    )
+
+                let collided = false
+
+                for (const c of colliders) {
+                    if (!c) continue
+
+                    const box =
+                        new THREE.Box3().setFromObject(
+                            c
+                        )
+
+                    if (
+                        !playerBox.intersectsBox(
+                            box
+                        )
+                    ) {
+                        continue
+                    }
+
+                    const overlapX =
+                        Math.min(
+                            playerBox.max.x,
+                            box.max.x
+                        ) -
+                        Math.max(
+                            playerBox.min.x,
+                            box.min.x
+                        )
+
+                    const overlapY =
+                        Math.min(
+                            playerBox.max.y,
+                            box.max.y
+                        ) -
+                        Math.max(
+                            playerBox.min.y,
+                            box.min.y
+                        )
+
+                    const overlapZ =
+                        Math.min(
+                            playerBox.max.z,
+                            box.max.z
+                        ) -
+                        Math.max(
+                            playerBox.min.z,
+                            box.min.z
+                        )
+
+                    if (
+                        overlapX <= 0 ||
+                        overlapY <= 0 ||
+                        overlapZ <= 0
+                    ) {
+                        continue
+                    }
+
+                    const playerCenter =
+                        playerBox.getCenter(
+                            new THREE.Vector3()
+                        )
+                    const boxCenter =
+                        box.getCenter(
+                            new THREE.Vector3()
+                        )
+
+                    const minOverlap =
+                        Math.min(
+                            overlapX,
+                            overlapY,
+                            overlapZ
+                        )
+
+                    if (
+                        minOverlap ===
+                        overlapY
+                    ) {
+                        if (
+                            playerCenter.y >=
+                            boxCenter.y
+                        ) {
+                            resolved.y +=
+                                overlapY +
+                                epsilon
+                            grounded = true
+                        } else {
+                            resolved.y -=
+                                overlapY +
+                                epsilon
+                        }
+                    } else if (
+                        minOverlap ===
+                        overlapX
+                    ) {
+                        resolved.x +=
+                            playerCenter.x >=
+                            boxCenter.x
+                                ? overlapX +
+                                  epsilon
+                                : -(
+                                      overlapX +
+                                      epsilon
+                                  )
+                    } else {
+                        resolved.z +=
+                            playerCenter.z >=
+                            boxCenter.z
+                                ? overlapZ +
+                                  epsilon
+                                : -(
+                                      overlapZ +
+                                      epsilon
+                                  )
+                    }
+
+                    collided = true
+                    break
+                }
+
+                if (!collided) {
+                    break
+                }
+            }
+
+            return {
+                position: resolved,
+                grounded,
             }
         }
 
-        if (!blockedX) {
-            camera.position.x +=
-                moveX.x
-        }
+        const nextPosition =
+            camera.position.clone()
 
-        // Z movement
-        const moveZ =
-            new THREE.Vector3(
-                0,
-                0,
-                velocity.current.z *
-                    delta
+        nextPosition.x +=
+            velocity.current.x * delta
+        nextPosition.y +=
+            velocity.current.y * delta
+        nextPosition.z +=
+            velocity.current.z * delta
+
+        const resolved =
+            resolveCollisions(
+                nextPosition
             )
 
-        const proposedZ =
-            camera.position
-                .clone()
-                .add(moveZ)
-
-        let blockedZ = false
-
-        for (const c of colliders) {
-            if (!c) continue
-
-            const box =
-                new THREE.Box3().setFromObject(
-                    c
-                )
-
-            if (
-                box.distanceToPoint(
-                    proposedZ
-                ) < playerRadius
-            ) {
-                blockedZ = true
-                break
-            }
-        }
-
-        if (!blockedZ) {
-            camera.position.z +=
-                moveZ.z
-        }
-
-        // =========================
-        // VERTICAL MOVEMENT
-        // =========================
-
-        camera.position.y +=
-            velocity.current.y *
-            delta
+        camera.position.copy(
+            resolved.position
+        )
 
         if (
             camera.position.y <
-            1.6
+            playerHeight
         ) {
-            camera.position.y = 1.6
+            camera.position.y =
+                playerHeight
+        }
 
+        if (
+            resolved.grounded ||
+            camera.position.y <=
+                playerHeight + epsilon
+        ) {
             velocity.current.y = 0
-
             onGround.current = true
+        } else {
+            onGround.current = false
         }
     })
 

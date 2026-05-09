@@ -20,8 +20,8 @@ export const ARKA: Weapon = {
   reloadTime: 4,
   spread: 0.01,
   recoil: {
-    vertical: 0.1,
-    horizontal: 0.03,
+    vertical: 0.2,
+    horizontal: 0.1,
     recovery: 5,
   },
 }

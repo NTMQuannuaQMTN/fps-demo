@@ -6,6 +6,7 @@ import { useProgressionStore } from "./useProgressionStore"
 import * as THREE from "three"
 
 const BREAK_TIME = 10
+const ZOMBIE_GROUND_Y = 0.9
 
 export function WaveManager() {
   const [wave, setWave] = useState(1)
@@ -57,7 +58,7 @@ export function WaveManager() {
 
       setZombies((prev) => [
         ...prev,
-        { id: Math.random(), position: [x, 1, z] },
+        { id: Math.random(), position: [x, ZOMBIE_GROUND_Y, z] },
       ])
 
       spawned++

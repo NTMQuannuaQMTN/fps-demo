@@ -43,17 +43,17 @@ export default function Scene() {
       camera={{ fov: 75, position: [0, 1.6, 5] }}
       style={{ width: "100vw", height: "100vh", display: "block", pointerEvents: paused || gameOver ? "none" : "auto" }}
     >
-      {/* Cyberpunk night sky */}
-      <color attach="background" args={["#0b0620"]} />
-      <fog attach="fog" args={["#0b0620", 12, 80]} />
+      {/* Sunset sky */}
+      <color attach="background" args={["#ff9d5c"]} />
+      <fog attach="fog" args={["#ff9d5c", 12, 80]} />
 
-      {/* Ambient neon fill */}
-      <ambientLight intensity={0.25} color="#8ab6ff" />
+      {/* Warm ambient fill */}
+      <ambientLight intensity={0.35} color="#ffb380" />
 
-      {/* Rim/Neon lights */}
-      <directionalLight position={[8, 14, 6]} intensity={0.6} castShadow color="#a45cff" />
-      <pointLight position={[-10, 4, -6]} intensity={1.2} color="#00f6ff" distance={40} />
-      <pointLight position={[12, 3, 10]} intensity={0.9} color="#ff3db8" distance={40} />
+      {/* Sunset directional light */}
+      <directionalLight position={[8, 12, 6]} intensity={0.8} castShadow color="#ff7f50" />
+      <pointLight position={[-10, 4, -6]} intensity={0.8} color="#ffaa00" distance={40} />
+      <pointLight position={[12, 3, 10]} intensity={0.6} color="#ff6b9d" distance={40} />
 
       {/* Ground - dark with subtle emissive grid look */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>

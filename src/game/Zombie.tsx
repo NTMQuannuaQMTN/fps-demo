@@ -5,6 +5,11 @@ import { useGameStore } from "./useGameStore"
 import { useEntityStore } from "./useEntityStore"
 import { useProgressionStore } from "./useProgressionStore"
 
+const GROUND_Y = 0.9
+const ZOMBIE_RADIUS = 0.4
+const ZOMBIE_LENGTH = 1
+const ZOMBIE_SPEED = 2
+
 export function Zombie({ position, onDeath }: any) {
     const ref = useRef<THREE.Mesh>(null!)
     const { camera } = useThree()
@@ -23,9 +28,29 @@ export function Zombie({ position, onDeath }: any) {
     const hp = useRef(100)
     const dead = useRef(false)
 
+    const removeFromColliders = () => {
+        const colliders = (window as any).colliders as THREE.Object3D[] | undefined
+
+        if (!colliders || !ref.current) return
+
+        const index = colliders.indexOf(ref.current)
+
+        if (index !== -1) {
+            colliders.splice(index, 1)
+        }
+    }
+
     // register entity
     useEffect(() => {
         if (!ref.current) return
+
+        if (!(window as any).colliders) (window as any).colliders = []
+
+        const colliders = (window as any).colliders as THREE.Object3D[]
+
+        if (!colliders.includes(ref.current)) {
+            colliders.push(ref.current)
+        }
 
         addEntity({
             id: id.current,
@@ -38,6 +63,7 @@ export function Zombie({ position, onDeath }: any) {
                 if (hp.current <= 0) {
                     dead.current = true
                     ref.current.visible = false
+                    removeFromColliders()
 
                     removeEntity(id.current)
                     onDeath?.()
@@ -59,6 +85,7 @@ export function Zombie({ position, onDeath }: any) {
         })
 
         return () => {
+            removeFromColliders()
             removeEntity(id.current)
         }
     }, [])
@@ -71,24 +98,69 @@ export function Zombie({ position, onDeath }: any) {
         const pos = ref.current.position
         const playerPos = camera.position
 
-        const dir = new THREE.Vector3()
-            .subVectors(playerPos, pos)
-            .normalize()
+        pos.y = GROUND_Y
 
-        const dist = pos.distanceTo(playerPos)
+        const dir = new THREE.Vector3(
+            playerPos.x - pos.x,
+            0,
+            playerPos.z - pos.z
+        )
+
+        const dist = dir.length()
+
+        if (dist > 0) {
+            dir.normalize()
+        }
+
+        const colliders = (window as any).colliders as THREE.Object3D[] | undefined
+        const zombieRadius = 0.5
+
+        const canMoveTo = (nextPos: THREE.Vector3) => {
+            if (!colliders) return true
+
+            for (const collider of colliders) {
+                if (!collider || collider === ref.current) continue
+
+                const box = new THREE.Box3().setFromObject(collider)
+
+                if (box.distanceToPoint(nextPos) < zombieRadius) {
+                    return false
+                }
+            }
+
+            return true
+        }
 
         if (dist > 2) {
-            pos.addScaledVector(dir, delta * 2)
-        } else {
-            setHp((h) => h - 5 * delta)
-            recordCombatAction()
+            const moveX = new THREE.Vector3(dir.x * delta * ZOMBIE_SPEED, 0, 0)
+            const moveZ = new THREE.Vector3(0, 0, dir.z * delta * ZOMBIE_SPEED)
+
+            const nextX = pos.clone().add(moveX)
+            nextX.y = GROUND_Y
+
+            if (canMoveTo(nextX)) {
+                pos.x += moveX.x
+            }
+
+            const nextZ = pos.clone().add(moveZ)
+            nextZ.y = GROUND_Y
+
+            if (canMoveTo(nextZ)) {
+                pos.z += moveZ.z
+            }
+
+            pos.y = GROUND_Y
+            return
         }
+
+        setHp((h) => h - 5 * delta)
+        recordCombatAction()
     })
 
     return (
         <>
             <mesh ref={ref} position={position} castShadow>
-                <boxGeometry args={[1, 2, 1]} />
+                <capsuleGeometry args={[ZOMBIE_RADIUS, ZOMBIE_LENGTH, 6, 10]} />
                 <meshStandardMaterial color="#ff0033" emissive="#ff0033" emissiveIntensity={0.8} />
             </mesh>
             {/* Glow effect light */}
