@@ -20,6 +20,7 @@ export function HUD() {
     const nextExp = useProgressionStore((s) => s.nextExp)
     const level = useProgressionStore((s) => s.level)
     const speed = useProgressionStore((s) => s.stats.speed)
+    const attack = useProgressionStore((s) => s.stats.attack)
     const defense = useProgressionStore((s) => s.stats.defense)
     const luck = useProgressionStore((s) => s.stats.luck)
     const hpStat = useProgressionStore((s) => s.stats.hp)
@@ -76,6 +77,7 @@ export function HUD() {
                 <div>Weapon: {weapon.name}</div>
                 <div>Level: {level}</div>
                 <div>Speed: {(speed * 100).toFixed(0)}%</div>
+                <div>Attack: +{attack.toFixed(0)}</div>
                 <div>Defense: {defense.toFixed(0)}</div>
                 <div>Luck: {(luck * 100).toFixed(0)}%</div>
             </div>

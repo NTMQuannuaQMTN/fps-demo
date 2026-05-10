@@ -8,6 +8,7 @@ export function ExpOrb({ position, onRemove }: any) {
     const ref = useRef<THREE.Mesh>(null!)
     const { camera } = useThree()
     const addExp = useProgressionStore((s) => s.addExp)
+    const speed = useProgressionStore((s) => s.stats.speed)
     const setOrbProgress = useGameStore((s) => s.setOrbProgress)
     const lastCombatTime = useGameStore((s) => s.lastCombatTime)
     const gameOver = useGameStore((s) => s.gameOver)
@@ -55,13 +56,15 @@ export function ExpOrb({ position, onRemove }: any) {
         const activeOrbId = (window as any).activeOrbId as string | null
         const ownsInteraction = activeOrbId === orbId.current
 
+        const holdTime = 3 / Math.max(0.5, speed)
+
         if (dist < 3 && (window as any).holdingE && (!activeOrbId || ownsInteraction)) {
             (window as any).activeOrbId = orbId.current
             hold.current += delta
-            setOrbProgress(hold.current / 3)
+            setOrbProgress(hold.current / holdTime)
 
-            if (hold.current >= 3) {
-                addExp(5)
+            if (hold.current >= holdTime) {
+                addExp(5 * speed)
                 dead.current = true
                 ;(window as any).activeOrbId = null
                 setOrbProgress(0)
@@ -73,7 +76,7 @@ export function ExpOrb({ position, onRemove }: any) {
             }
             hold.current = Math.max(0, hold.current - delta)
             if (ownsInteraction || hold.current <= 0) {
-                setOrbProgress(hold.current > 0 ? hold.current / 3 : 0)
+                setOrbProgress(hold.current > 0 ? hold.current / holdTime : 0)
             }
         }
     })

@@ -2,7 +2,8 @@ import { useFrame, useThree } from "@react-three/fiber"
 import { useEffect, useRef, useState } from "react"
 import * as THREE from "three"
 import { useGameStore } from "./useGameStore"
-import { ARKA } from "./weapons"
+import { rollCrateWeapon } from "./weapons"
+import { useProgressionStore } from "./useProgressionStore"
 
 export function Crate({ position }: { position: [number, number, number] }) {
   const meshRef = useRef<THREE.Mesh>(null!)
@@ -13,8 +14,11 @@ export function Crate({ position }: { position: [number, number, number] }) {
   const { camera } = useThree()
   const setWeapon = useGameStore((s) => s.setWeapon)
   const setOrbProgress = useGameStore((s) => s.setOrbProgress)
+  const weapon = useGameStore((s) => s.weapon)
   const lastCombatTime = useGameStore((s) => s.lastCombatTime)
   const gameOver = useGameStore((s) => s.gameOver)
+  const speed = useProgressionStore((s) => s.stats.speed)
+  const luck = useProgressionStore((s) => s.stats.luck)
 
   useEffect(() => {
     return () => {
@@ -31,6 +35,7 @@ export function Crate({ position }: { position: [number, number, number] }) {
     const activeCrateId = (window as any).activeCrateId as string | null
     const ownsInteraction = activeCrateId === crateId.current
     const inCombatWindow = Date.now() - lastCombatTime < 900
+    const holdTime = 3 / Math.max(0.5, speed)
 
     if (inCombatWindow) {
       if (ownsInteraction) {
@@ -43,12 +48,12 @@ export function Crate({ position }: { position: [number, number, number] }) {
     if (dist < 3 && (window as any).holdingE && (!activeCrateId || ownsInteraction)) {
       (window as any).activeCrateId = crateId.current
       hold.current += delta
-      setOrbProgress(Math.min(1, hold.current / 3))
+      setOrbProgress(Math.min(1, hold.current / holdTime))
 
-      if (hold.current >= 3) {
+      if (hold.current >= holdTime) {
         setOpened(true)
         ;(window as any).activeCrateId = null
-        setWeapon(ARKA)
+        setWeapon(rollCrateWeapon(weapon, luck))
         setOrbProgress(0)
       }
     } else {
@@ -57,7 +62,7 @@ export function Crate({ position }: { position: [number, number, number] }) {
       }
       hold.current = Math.max(0, hold.current - delta)
       if (ownsInteraction || hold.current <= 0) {
-        setOrbProgress(hold.current > 0 ? hold.current / 3 : 0)
+        setOrbProgress(hold.current > 0 ? hold.current / holdTime : 0)
       }
     }
   })

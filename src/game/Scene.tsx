@@ -6,25 +6,37 @@ import { useProgressionStore } from "./useProgressionStore"
 import { useGameStore } from "./useGameStore"
 import { Crate } from "./Crate"
 
-const props = [
+const generateRandomObstacles = (count: number) => {
+  const obstacles = []
+  const colors = ["#8a735c", "#7d6f5c", "#6d7f55", "#5f7f45"]
+  
+  for (let i = 0; i < count; i++) {
+    const x = (Math.random() - 0.5) * 70
+    const z = (Math.random() - 0.5) * 70
+    const scale = 0.8 + Math.random() * 1.8
+    const heightVariation = Math.random() * 2
+    
+    obstacles.push({
+      position: [x, 0.5 + heightVariation, z] as [number, number, number],
+      scale: [scale, heightVariation + 0.8, scale] as [number, number, number],
+      color: colors[Math.floor(Math.random() * colors.length)],
+    })
+  }
+  
+  return obstacles
+}
+
+const staticProps = [
   { position: [-14, 0.5, -8], scale: [2, 1, 2], color: "#8a735c" },
   { position: [12, 0.75, -18], scale: [1.5, 1.5, 1.5], color: "#7d6f5c" },
   { position: [-9, 0.35, 16], scale: [1, 0.7, 1], color: "#6d7f55" },
   { position: [16, 0.5, 11], scale: [1.2, 1, 1.2], color: "#7d6f5c" },
   { position: [-18, 1.4, 6], scale: [0.8, 2.8, 0.8], color: "#5f7f45" },
   { position: [20, 1.2, -2], scale: [0.8, 2.4, 0.8], color: "#5f7f45" },
-  // Additional obstacles
-  { position: [0, 0.6, -20], scale: [3, 1.2, 1], color: "#8a735c" },
-  { position: [-25, 0.5, 0], scale: [1.5, 1.5, 1.5], color: "#7d6f5c" },
-  { position: [25, 0.8, -10], scale: [1, 2, 1], color: "#6d7f55" },
-  { position: [-5, 0.4, -15], scale: [2, 0.8, 2], color: "#7d6f5c" },
-  { position: [5, 1, 25], scale: [1.5, 2.5, 1.5], color: "#5f7f45" },
-  { position: [-20, 0.6, -10], scale: [2.5, 1, 2.5], color: "#8a735c" },
-  { position: [15, 0.5, 20], scale: [1, 1.2, 1], color: "#7d6f5c" },
-  { position: [0, 1.2, 10], scale: [1.8, 2, 1.8], color: "#6d7f55" },
-  { position: [-30, 0.7, 15], scale: [1.2, 1.8, 1.2], color: "#5f7f45" },
-  { position: [30, 0.5, -5], scale: [2, 1, 2], color: "#7d6f5c" },
 ]
+
+const randomObstacles = generateRandomObstacles(20)
+const props = [...staticProps, ...randomObstacles]
 
 const crates: Array<[number, number, number]> = [
   [-10, 0.6, 12],
@@ -92,6 +104,59 @@ export default function Scene() {
           <Crate position={position} />
         </group>
       ))}
+
+      {/* Map Border Barriers */}
+      {/* North wall */}
+      <mesh
+        position={[0, 2, -50]}
+        ref={(m) => {
+          if (!m) return
+          if (!(window as any).colliders) (window as any).colliders = []
+          if (!(window as any).colliders.includes(m)) (window as any).colliders.push(m)
+        }}
+      >
+        <boxGeometry args={[100, 4, 2]} />
+        <meshStandardMaterial color="#1a1a2e" emissive="#0a0a1a" emissiveIntensity={0.3} transparent opacity={0.2} />
+      </mesh>
+
+      {/* South wall */}
+      <mesh
+        position={[0, 2, 50]}
+        ref={(m) => {
+          if (!m) return
+          if (!(window as any).colliders) (window as any).colliders = []
+          if (!(window as any).colliders.includes(m)) (window as any).colliders.push(m)
+        }}
+      >
+        <boxGeometry args={[100, 4, 2]} />
+        <meshStandardMaterial color="#1a1a2e" emissive="#0a0a1a" emissiveIntensity={0.3} transparent opacity={0.2} />
+      </mesh>
+
+      {/* West wall */}
+      <mesh
+        position={[-50, 2, 0]}
+        ref={(m) => {
+          if (!m) return
+          if (!(window as any).colliders) (window as any).colliders = []
+          if (!(window as any).colliders.includes(m)) (window as any).colliders.push(m)
+        }}
+      >
+        <boxGeometry args={[2, 4, 100]} />
+        <meshStandardMaterial color="#1a1a2e" emissive="#0a0a1a" emissiveIntensity={0.3} transparent opacity={0.2} />
+      </mesh>
+
+      {/* East wall */}
+      <mesh
+        position={[50, 2, 0]}
+        ref={(m) => {
+          if (!m) return
+          if (!(window as any).colliders) (window as any).colliders = []
+          if (!(window as any).colliders.includes(m)) (window as any).colliders.push(m)
+        }}
+      >
+        <boxGeometry args={[2, 4, 100]} />
+        <meshStandardMaterial color="#1a1a2e" emissive="#0a0a1a" emissiveIntensity={0.3} transparent opacity={0.2} />
+      </mesh>
 
       <Player />
       <WaveManager />

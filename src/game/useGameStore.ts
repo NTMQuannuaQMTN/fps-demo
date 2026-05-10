@@ -7,6 +7,7 @@ type GameState = {
   ammo: number
   isReloading: boolean
   reloadEndAt: number
+  reloadSpeedMultiplier: number
   mobsLeft: number
   kills: number
   lastCombatTime: number
@@ -21,6 +22,7 @@ type GameState = {
   setMobsLeft: (value: number | ((m: number) => number)) => void
   addKill: () => void
   setWeapon: (weapon: Weapon) => void
+  setReloadSpeedMultiplier: (value: number) => void
   shoot: () => boolean
   reload: () => void
   recordCombatAction: () => void
@@ -37,6 +39,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   ammo: PISTOL.magSize,
   isReloading: false,
   reloadEndAt: 0,
+  reloadSpeedMultiplier: 1,
   mobsLeft: 5,
   kills: 0,
   lastCombatTime: Date.now(),
@@ -64,6 +67,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   setMobsLeft: (value) => set((s) => ({ mobsLeft: typeof value === "function" ? value(s.mobsLeft) : value })),
   addKill: () => set((s) => ({ kills: s.kills + 1 })),
   setWeapon: (weapon) => set({ weapon, ammo: weapon.magSize, isReloading: false, reloadEndAt: 0 }),
+  setReloadSpeedMultiplier: (value) => set({ reloadSpeedMultiplier: Math.max(0.5, value) }),
   recordCombatAction: () => set((s) => (s.gameOver ? {} : { lastCombatTime: Date.now() })),
   flashHitMarker: () => {
     if (hitMarkerTimeout) clearTimeout(hitMarkerTimeout)
@@ -89,12 +93,14 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   reload: () => {
-    const { weapon, isReloading, gameOver } = get()
+    const { weapon, isReloading, gameOver, reloadSpeedMultiplier } = get()
     if (isReloading || gameOver) return
+
+    const reloadTime = weapon.reloadTime / Math.max(0.5, reloadSpeedMultiplier)
 
     set({
       isReloading: true,
-      reloadEndAt: Date.now() + weapon.reloadTime * 1000,
+      reloadEndAt: Date.now() + reloadTime * 1000,
     })
 
     setTimeout(() => {
@@ -112,6 +118,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     ammo: PISTOL.magSize,
     isReloading: false,
     reloadEndAt: 0,
+    reloadSpeedMultiplier: 1,
     mobsLeft: 0,
     kills: 0,
     lastCombatTime: Date.now(),

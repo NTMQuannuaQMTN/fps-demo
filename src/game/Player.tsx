@@ -70,6 +70,10 @@ export function Player() {
         (s) => s.reload
     )
 
+    const setReloadSpeedMultiplier = useGameStore(
+        (s) => s.setReloadSpeedMultiplier
+    )
+
     const weapon = useGameStore(
         (s) => s.weapon
     )
@@ -104,6 +108,14 @@ export function Player() {
 
     const hpStat = useProgressionStore(
         (s) => s.stats.hp
+    )
+
+    const speedStat = useProgressionStore(
+        (s) => s.stats.speed
+    )
+
+    const attackStat = useProgressionStore(
+        (s) => s.stats.attack
     )
 
     // =========================
@@ -208,6 +220,10 @@ export function Player() {
         setHp(() => maxHp)
     }, [hpStat, setHp])
 
+    useEffect(() => {
+        setReloadSpeedMultiplier(speedStat)
+    }, [speedStat, setReloadSpeedMultiplier])
+
     // =========================
     // SHOOTING
     // =========================
@@ -300,7 +316,7 @@ export function Player() {
                 }
 
                 entity?.hit(
-                    weapon.damage
+                    weapon.damage + attackStat
                 )
 
                 flashHitMarker()
@@ -459,10 +475,10 @@ export function Player() {
         // MOVEMENT
         // =========================
 
-        const speed =
-            keys["ShiftLeft"]
+        const movementSpeed =
+            (keys["ShiftLeft"]
                 ? 8
-                : 5
+                : 5) * speedStat
 
         const dir =
             new THREE.Vector3()
@@ -507,13 +523,13 @@ export function Player() {
             (right.x * dir.x +
                 forward.x *
                     dir.z) *
-            speed
+            movementSpeed
 
         velocity.current.z =
             (right.z * dir.x +
                 forward.z *
                     dir.z) *
-            speed
+            movementSpeed
 
         // =========================
         // RECOIL RECOVERY

@@ -1,6 +1,6 @@
 import { create } from "zustand"
 
-type Stat = "speed" | "defense" | "luck" | "hp"
+type Stat = "speed" | "attack" | "defense" | "luck" | "hp"
 
 type State = {
     exp: number
@@ -9,6 +9,7 @@ type State = {
 
     stats: {
         speed: number
+        attack: number
         defense: number
         luck: number
         hp: number
@@ -23,7 +24,7 @@ type State = {
 }
 
 const randomChoices = (): Stat[] => {
-    const all: Stat[] = ["speed", "defense", "luck", "hp"]
+    const all: Stat[] = ["speed", "attack", "defense", "luck", "hp"]
     return all.sort(() => Math.random() - 0.5).slice(0, 3)
 }
 
@@ -34,6 +35,7 @@ export const useProgressionStore = create<State>((set, get) => ({
 
     stats: {
         speed: 1,
+        attack: 0,
         defense: 0,
         luck: 0,
         hp: 100,
@@ -63,7 +65,8 @@ export const useProgressionStore = create<State>((set, get) => ({
         set((state) => {
             const stats = { ...state.stats }
 
-            if (stat === "speed") stats.speed += 0.05
+            if (stat === "speed") stats.speed += 0.2
+            if (stat === "attack") stats.attack += 5
             if (stat === "defense") stats.defense += 3
             if (stat === "luck") stats.luck += 0.02
             if (stat === "hp") stats.hp += 10
@@ -83,6 +86,7 @@ export const useProgressionStore = create<State>((set, get) => ({
             nextExp: 10,
             stats: {
                 speed: 1,
+                attack: 0,
                 defense: 0,
                 luck: 0,
                 hp: 100,

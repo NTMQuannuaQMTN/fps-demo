@@ -20,7 +20,9 @@ export function Zombie({ position, onDeath }: any) {
     const addEntity = useEntityStore((s) => s.add)
     const removeEntity = useEntityStore((s) => s.remove)
     const addExp = useProgressionStore((s) => s.addExp)
+    const speed = useProgressionStore((s) => s.stats.speed)
     const luck = useProgressionStore((s) => s.stats.luck)
+    const defense = useProgressionStore((s) => s.stats.defense)
     const paused = useProgressionStore((s) => s.paused)
     const gameOver = useGameStore((s) => s.gameOver)
 
@@ -69,11 +71,11 @@ export function Zombie({ position, onDeath }: any) {
                     onDeath?.()
 
                     // ✅ EXP & KILL
-                    addExp(2)
+                    addExp(2 * speed)
                     addKill()
 
                     // ✅ Orb drop
-                    const dropChance = 0.2 * (1 + luck)
+                    const dropChance = Math.min(0.85, 0.2 + luck * 1.5)
 
                     if (Math.random() < dropChance) {
                         ; (window as any).spawnOrb?.(
@@ -153,7 +155,9 @@ export function Zombie({ position, onDeath }: any) {
             return
         }
 
-        setHp((h) => h - 5 * delta)
+        const damagePerSecond = Math.max(0.8, 5 - defense * 0.2)
+
+        setHp((h) => h - damagePerSecond * delta)
         recordCombatAction()
     })
 
