@@ -353,7 +353,7 @@ export function Player() {
             yaw.current +=
                 (Math.random() - 0.5) *
                 weapon.recoil.horizontal *
-                0.01
+                0.1
 
             // =========================
             // CAMERA SHAKE

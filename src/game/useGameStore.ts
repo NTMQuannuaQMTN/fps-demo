@@ -32,6 +32,7 @@ type GameState = {
 }
 
 let hitMarkerTimeout: ReturnType<typeof setTimeout> | undefined
+let reloadTimeout: ReturnType<typeof setTimeout> | undefined
 
 export const useGameStore = create<GameState>((set, get) => ({
   hp: 100,
@@ -66,7 +67,13 @@ export const useGameStore = create<GameState>((set, get) => ({
   }),
   setMobsLeft: (value) => set((s) => ({ mobsLeft: typeof value === "function" ? value(s.mobsLeft) : value })),
   addKill: () => set((s) => ({ kills: s.kills + 1 })),
-  setWeapon: (weapon) => set({ weapon, ammo: weapon.magSize, isReloading: false, reloadEndAt: 0 }),
+  setWeapon: (weapon) => {
+    if (reloadTimeout) {
+      clearTimeout(reloadTimeout)
+      reloadTimeout = undefined
+    }
+    set({ weapon, ammo: weapon.magSize, isReloading: false, reloadEndAt: 0 })
+  },
   setReloadSpeedMultiplier: (value) => set({ reloadSpeedMultiplier: Math.max(0.5, value) }),
   recordCombatAction: () => set((s) => (s.gameOver ? {} : { lastCombatTime: Date.now() })),
   flashHitMarker: () => {
@@ -98,35 +105,45 @@ export const useGameStore = create<GameState>((set, get) => ({
 
     const reloadTime = weapon.reloadTime / Math.max(0.5, reloadSpeedMultiplier)
 
+    if (reloadTimeout) clearTimeout(reloadTimeout)
+
     set({
       isReloading: true,
       reloadEndAt: Date.now() + reloadTime * 1000,
     })
 
-    setTimeout(() => {
+    reloadTimeout = setTimeout(() => {
       set({
         ammo: weapon.magSize,
         isReloading: false,
         reloadEndAt: 0,
       })
-    }, weapon.reloadTime * 1000)
+      reloadTimeout = undefined
+    }, reloadTime * 1000)
   },
 
-  resetGame: () => set((s) => ({
-    hp: 100,
-    weapon: PISTOL,
-    ammo: PISTOL.magSize,
-    isReloading: false,
-    reloadEndAt: 0,
-    reloadSpeedMultiplier: 1,
-    mobsLeft: 0,
-    kills: 0,
-    lastCombatTime: Date.now(),
-    hitMarkerVisible: false,
-    orbProgress: 0,
-    gameOver: false,
-    startTime: Date.now(),
-    survivedSeconds: 0,
-    sessionId: s.sessionId + 1,
-  })),
+  resetGame: () => set((s) => {
+    if (reloadTimeout) {
+      clearTimeout(reloadTimeout)
+      reloadTimeout = undefined
+    }
+
+    return {
+      hp: 100,
+      weapon: PISTOL,
+      ammo: PISTOL.magSize,
+      isReloading: false,
+      reloadEndAt: 0,
+      reloadSpeedMultiplier: 1,
+      mobsLeft: 0,
+      kills: 0,
+      lastCombatTime: Date.now(),
+      hitMarkerVisible: false,
+      orbProgress: 0,
+      gameOver: false,
+      startTime: Date.now(),
+      survivedSeconds: 0,
+      sessionId: s.sessionId + 1,
+    }
+  }),
 }))

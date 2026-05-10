@@ -54,6 +54,34 @@ export const MERBON: Weapon = {
   },
 }
 
+export const EASY_SMG: Weapon = {
+  name: "Easy",
+  damage: 20,
+  rpm: 1000,
+  magSize: 25,
+  reloadTime: 2,
+  spread: 0.02,
+  recoil: {
+    vertical: 0.12,
+    horizontal: 0.08,
+    recovery: 4,
+  },
+}
+
+export const BEEZONE_SMG: Weapon = {
+  name: "Beezone",
+  damage: 18,
+  rpm: 900,
+  magSize: 53,
+  reloadTime: 5,
+  spread: 0.03,
+  recoil: {
+    vertical: 0.18,
+    horizontal: 0.12,
+    recovery: 6,
+  },
+}
+
 export const ARKANGER: Weapon = {
   name: "Arkanger",
   damage: 30,
@@ -86,6 +114,8 @@ export const RIFLE: Weapon = {
 export const WEAPON_TIERS: Record<string, number> = {
   [PISTOL.name]: 1,
   // Tier 2 reserved for incoming guns
+  [EASY_SMG.name]: 2,
+  [BEEZONE_SMG.name]: 2,
   [ARKA.name]: 3,
   [MERBON.name]: 3,
   [ARKANGER.name]: 4,
@@ -94,7 +124,7 @@ export const WEAPON_TIERS: Record<string, number> = {
 
 export const WEAPONS_BY_TIER: Record<number, Weapon[]> = {
   1: [PISTOL],
-  2: [], // Reserved for incoming guns
+  2: [EASY_SMG, BEEZONE_SMG],
   3: [ARKA, MERBON],
   4: [ARKANGER, RIFLE],
 }

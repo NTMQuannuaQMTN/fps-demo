@@ -52,7 +52,7 @@ export const useProgressionStore = create<State>((set, get) => ({
             set({
                 exp: newExp - nextExp,
                 level: level + 1,
-                nextExp: Math.floor(nextExp * 1.5),
+                nextExp: Math.floor(nextExp * 1.2),
                 paused: true,
                 choices: randomChoices(),
             })
