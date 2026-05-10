@@ -10,6 +10,19 @@ const ZOMBIE_RADIUS = 0.4
 const ZOMBIE_LENGTH = 1
 const ZOMBIE_SPEED = 2
 
+const colliderBoxCache = new WeakMap<THREE.Object3D, THREE.Box3>()
+
+const getColliderBox = (collider: THREE.Object3D) => {
+    let box = colliderBoxCache.get(collider)
+
+    if (!box) {
+        box = new THREE.Box3().setFromObject(collider)
+        colliderBoxCache.set(collider, box)
+    }
+
+    return box
+}
+
 export function Zombie({ position, onDeath }: any) {
     const ref = useRef<THREE.Mesh>(null!)
     const { camera } = useThree()
@@ -29,6 +42,8 @@ export function Zombie({ position, onDeath }: any) {
     const id = useRef(crypto.randomUUID())
     const hp = useRef(100)
     const dead = useRef(false)
+    const nextPos = useRef(new THREE.Vector3())
+    const moveDirection = useRef(new THREE.Vector3())
 
     const removeFromColliders = () => {
         const colliders = (window as any).colliders as THREE.Object3D[] | undefined
@@ -45,6 +60,9 @@ export function Zombie({ position, onDeath }: any) {
     // register entity
     useEffect(() => {
         if (!ref.current) return
+
+        ref.current.userData.dynamicCollider = true
+        ref.current.userData.colliderRadius = 0.5
 
         if (!(window as any).colliders) (window as any).colliders = []
 
@@ -102,11 +120,8 @@ export function Zombie({ position, onDeath }: any) {
 
         pos.y = GROUND_Y
 
-        const dir = new THREE.Vector3(
-            playerPos.x - pos.x,
-            0,
-            playerPos.z - pos.z
-        )
+        const dir = moveDirection.current
+        dir.set(playerPos.x - pos.x, 0, playerPos.z - pos.z)
 
         const dist = dir.length()
 
@@ -115,7 +130,7 @@ export function Zombie({ position, onDeath }: any) {
         }
 
         const colliders = (window as any).colliders as THREE.Object3D[] | undefined
-        const zombieRadius = 0.5
+        const zombieRadius = ref.current.userData.colliderRadius ?? 0.5
 
         const canMoveTo = (nextPos: THREE.Vector3) => {
             if (!colliders) return true
@@ -123,7 +138,17 @@ export function Zombie({ position, onDeath }: any) {
             for (const collider of colliders) {
                 if (!collider || collider === ref.current) continue
 
-                const box = new THREE.Box3().setFromObject(collider)
+                if (collider.userData?.dynamicCollider) {
+                    const otherRadius = collider.userData.colliderRadius ?? 0.5
+
+                    if (collider.position.distanceTo(nextPos) < zombieRadius + otherRadius) {
+                        return false
+                    }
+
+                    continue
+                }
+
+                const box = getColliderBox(collider)
 
                 if (box.distanceToPoint(nextPos) < zombieRadius) {
                     return false
@@ -134,21 +159,18 @@ export function Zombie({ position, onDeath }: any) {
         }
 
         if (dist > 2) {
-            const moveX = new THREE.Vector3(dir.x * delta * ZOMBIE_SPEED, 0, 0)
-            const moveZ = new THREE.Vector3(0, 0, dir.z * delta * ZOMBIE_SPEED)
+            const moveStep = delta * ZOMBIE_SPEED
 
-            const nextX = pos.clone().add(moveX)
-            nextX.y = GROUND_Y
+            nextPos.current.set(pos.x + dir.x * moveStep, GROUND_Y, pos.z)
 
-            if (canMoveTo(nextX)) {
-                pos.x += moveX.x
+            if (canMoveTo(nextPos.current)) {
+                pos.x = nextPos.current.x
             }
 
-            const nextZ = pos.clone().add(moveZ)
-            nextZ.y = GROUND_Y
+            nextPos.current.set(pos.x, GROUND_Y, pos.z + dir.z * moveStep)
 
-            if (canMoveTo(nextZ)) {
-                pos.z += moveZ.z
+            if (canMoveTo(nextPos.current)) {
+                pos.z = nextPos.current.z
             }
 
             pos.y = GROUND_Y
@@ -162,13 +184,9 @@ export function Zombie({ position, onDeath }: any) {
     })
 
     return (
-        <>
-            <mesh ref={ref} position={position} castShadow>
-                <capsuleGeometry args={[ZOMBIE_RADIUS, ZOMBIE_LENGTH, 6, 10]} />
-                <meshStandardMaterial color="#ff0033" emissive="#ff0033" emissiveIntensity={0.8} />
-            </mesh>
-            {/* Glow effect light */}
-            <pointLight position={position} intensity={1.5} color="#ff0033" distance={8} />
-        </>
+        <mesh ref={ref} position={position} castShadow>
+            <capsuleGeometry args={[ZOMBIE_RADIUS, ZOMBIE_LENGTH, 6, 10]} />
+            <meshStandardMaterial color="#ff0033" emissive="#ff0033" emissiveIntensity={0.8} />
+        </mesh>
     )
 }

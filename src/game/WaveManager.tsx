@@ -63,7 +63,7 @@ export function WaveManager() {
       if (aliveCount.current >= 50) return
 
       const angle = Math.random() * Math.PI * 2
-      const dist = 30 + Math.random() * 30
+      const dist = 20 + Math.random() * 20
 
       const x = Math.cos(angle) * dist
       const z = Math.sin(angle) * dist
