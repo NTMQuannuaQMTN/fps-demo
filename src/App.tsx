@@ -1,6 +1,7 @@
 import Scene from "./game/Scene"
 import { HUD } from "./game/HUD"
 import { UpgradeUI } from "./game/UpgradeUI"
+import { MobileControls } from "./game/MobileControls"
 
 function App() {
   return (
@@ -8,6 +9,7 @@ function App() {
       <Scene />
       <HUD />
       <UpgradeUI />
+      <MobileControls />
     </>
   )
 }

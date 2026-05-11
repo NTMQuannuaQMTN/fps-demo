@@ -41,6 +41,8 @@ body,
 body {
   overflow: hidden;
   background: #9fc5ff;
+  touch-action: none;
+  overscroll-behavior: none;
 }
 
 #root {
@@ -54,6 +56,19 @@ body {
   position: relative;
   width: 100%;
   height: 100%;
+}
+
+.mobile-controls {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10000;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .mobile-controls {
+    display: none;
+  }
 }
 
 .hud {

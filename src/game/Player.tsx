@@ -59,6 +59,31 @@ export function Player() {
     >({})
 
     // =========================
+    // MOBILE INPUT
+    // =========================
+
+    const mobileInputRef = useRef<any>({
+        joystickX: 0,
+        joystickY: 0,
+        isShooting: false,
+        isReloading: false,
+        isGetting: false,
+        gyroYaw: 0,
+        gyroPitch: 0,
+        fingerLookX: 0,
+        fingerLookY: 0,
+    })
+
+    const keyboardHoldERef = useRef(false)
+    const mobileHoldERef = useRef(false)
+
+    // Track mobile button state transitions (useRef must be top-level)
+    const lastMobileStateRef = useRef({
+        wasReloading: false,
+        wasGetting: false,
+    })
+
+    // =========================
     // STORES
     // =========================
 
@@ -161,7 +186,7 @@ export function Player() {
     }, [])
 
     // =========================
-    // MOUSE LOOK
+    // MOUSE LOOK & MOBILE INPUT SYNC
     // =========================
 
     useEffect(() => {
@@ -186,6 +211,15 @@ export function Player() {
                 )
         }
 
+        // Sync mobile input from window
+        const syncMobileInput = () => {
+            if ((window as any).mobileInput) {
+                mobileInputRef.current = (window as any).mobileInput
+            }
+        }
+
+        const syncInterval = setInterval(syncMobileInput, 16) // ~60fps
+
         window.addEventListener(
             "mousemove",
             onMouseMove
@@ -196,6 +230,7 @@ export function Player() {
                 "mousemove",
                 onMouseMove
             )
+            clearInterval(syncInterval)
         }
     }, [])
 
@@ -445,6 +480,23 @@ export function Player() {
         // APPLY CAMERA ROTATION
         // =========================
 
+        // =========================
+        // APPLY GYRO & FINGER LOOK
+        // =========================
+
+        yaw.current += mobileInputRef.current.gyroYaw
+        pitch.current += mobileInputRef.current.gyroPitch
+
+        yaw.current -= mobileInputRef.current.fingerLookX
+        pitch.current -= mobileInputRef.current.fingerLookY
+
+        pitch.current =
+            THREE.MathUtils.clamp(
+                pitch.current,
+                -Math.PI / 2,
+                Math.PI / 2
+            )
+
         camera.rotation.order =
             "YXZ"
 
@@ -458,7 +510,7 @@ export function Player() {
         // AUTO FIRE
         // =========================
 
-        if (isMouseDown.current) {
+        if (isMouseDown.current || mobileInputRef.current.isShooting) {
             const delay =
                 60000 / weapon.rpm
 
@@ -494,6 +546,10 @@ export function Player() {
 
         if (keys["KeyD"])
             dir.x += 1
+
+        // Mobile joystick input
+        dir.x += mobileInputRef.current.joystickX
+        dir.z += mobileInputRef.current.joystickY
 
         dir.normalize()
 
@@ -857,9 +913,8 @@ export function Player() {
             if (
                 e.code === "KeyE"
             ) {
-                ;(
-                    window as any
-                ).holdingE = true
+                keyboardHoldERef.current = true
+                ;(window as any).holdingE = true
             }
         }
 
@@ -869,9 +924,10 @@ export function Player() {
             if (
                 e.code === "KeyE"
             ) {
-                ;(
-                    window as any
-                ).holdingE = false
+                keyboardHoldERef.current = false
+                ;(window as any).holdingE =
+                    keyboardHoldERef.current ||
+                    mobileHoldERef.current
             }
         }
 
@@ -897,6 +953,35 @@ export function Player() {
             )
         }
     }, [])
+
+    // =========================
+    // MOBILE BUTTONS HANDLER
+    // =========================
+
+    useEffect(() => {
+        const checkMobileButtons = setInterval(() => {
+            const currentReloading = mobileInputRef.current.isReloading
+            const currentGetting = mobileInputRef.current.isGetting
+
+            mobileHoldERef.current = currentGetting
+            ;(window as any).holdingE =
+                keyboardHoldERef.current ||
+                mobileHoldERef.current
+
+            // Handle reload button press (on transition from false to true)
+            if (currentReloading && !lastMobileStateRef.current.wasReloading) {
+                reload()
+            }
+
+            // Update tracking
+            lastMobileStateRef.current.wasReloading = currentReloading
+            lastMobileStateRef.current.wasGetting = currentGetting
+        }, 50)
+
+        return () => {
+            clearInterval(checkMobileButtons)
+        }
+    }, [reload])
 
     return null
 }
