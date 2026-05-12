@@ -153,14 +153,13 @@ export function MobileControls() {
 
   useEffect(() => {
     const handleDeviceOrientation = (event: DeviceOrientationEvent) => {
-      if (!event.alpha || !event.beta || !event.gamma) return
+      if (event.alpha === null || event.beta === null || event.gamma === null) return
 
-      const alpha = event.alpha || 0 // Z axis rotation (0-360)
-      const beta = event.beta || 0 // X axis rotation (-180 to 180)
-      const gamma = event.gamma || 0 // Y axis rotation (-90 to 90)
+      const alpha = event.alpha // Z axis rotation (0-360)
+      const beta = event.beta // X axis rotation (-180 to 180)
+      const gamma = event.gamma // Y axis rotation (-90 to 90)
 
-      const deltaAlpha =
-        alpha - lastGyroRef.current.alpha
+      const deltaAlpha = alpha - lastGyroRef.current.alpha
       const deltaBeta = beta - lastGyroRef.current.beta
 
       lastGyroRef.current = { alpha, beta, gamma }
@@ -179,41 +178,32 @@ export function MobileControls() {
 
     const handlePermission = async () => {
       try {
+        // iOS 13+
         if (
           typeof DeviceOrientationEvent !== "undefined" &&
-          typeof (DeviceOrientationEvent as any).requestPermission ===
-            "function"
+          typeof (DeviceOrientationEvent as any).requestPermission === "function"
         ) {
-          const permission = await (
-            DeviceOrientationEvent as any
-          ).requestPermission()
+          const permission = await (DeviceOrientationEvent as any).requestPermission()
           if (permission === "granted") {
-            window.addEventListener(
-              "deviceorientation",
-              handleDeviceOrientation
-            )
+            window.addEventListener("deviceorientation", handleDeviceOrientation, true)
           }
-        } else if (
-          typeof DeviceOrientationEvent !== "undefined"
-        ) {
-          // Non-iOS
-          window.addEventListener(
-            "deviceorientation",
-            handleDeviceOrientation
-          )
+        } else if (typeof DeviceOrientationEvent !== "undefined") {
+          // Android and non-iOS browsers
+          window.addEventListener("deviceorientation", handleDeviceOrientation, true)
         }
       } catch (err) {
         console.error("Gyro permission error:", err)
+        // Fallback: try to listen anyway
+        if (typeof DeviceOrientationEvent !== "undefined") {
+          window.addEventListener("deviceorientation", handleDeviceOrientation, true)
+        }
       }
     }
 
     handlePermission()
 
     return () => {
-      window.removeEventListener(
-        "deviceorientation",
-        handleDeviceOrientation
-      )
+      window.removeEventListener("deviceorientation", handleDeviceOrientation, true)
     }
   }, [])
 
@@ -233,21 +223,13 @@ export function MobileControls() {
     }
 
     const handleTouchMove = (e: TouchEvent) => {
-      if (
-        !fingerLookActiveRef.current ||
-        e.touches.length !== 2
-      )
-        return
+      if (!fingerLookActiveRef.current || e.touches.length !== 2) return
 
-      const currentX =
-        (e.touches[0].clientX + e.touches[1].clientX) / 2
-      const currentY =
-        (e.touches[0].clientY + e.touches[1].clientY) / 2
+      const currentX = (e.touches[0].clientX + e.touches[1].clientX) / 2
+      const currentY = (e.touches[0].clientY + e.touches[1].clientY) / 2
 
-      const dx =
-        currentX - lastFingerLookRef.current.x
-      const dy =
-        currentY - lastFingerLookRef.current.y
+      const dx = currentX - lastFingerLookRef.current.x
+      const dy = currentY - lastFingerLookRef.current.y
 
       const sensitivity = 0.002
 
@@ -271,14 +253,14 @@ export function MobileControls() {
       }
     }
 
-    window.addEventListener("touchstart", handleTouchStart)
-    window.addEventListener("touchmove", handleTouchMove)
-    window.addEventListener("touchend", handleTouchEnd)
+    document.addEventListener("touchstart", handleTouchStart, { passive: true })
+    document.addEventListener("touchmove", handleTouchMove, { passive: true })
+    document.addEventListener("touchend", handleTouchEnd, { passive: true })
 
     return () => {
-      window.removeEventListener("touchstart", handleTouchStart)
-      window.removeEventListener("touchmove", handleTouchMove)
-      window.removeEventListener("touchend", handleTouchEnd)
+      document.removeEventListener("touchstart", handleTouchStart)
+      document.removeEventListener("touchmove", handleTouchMove)
+      document.removeEventListener("touchend", handleTouchEnd)
     }
   }, [])
 
@@ -303,6 +285,7 @@ export function MobileControls() {
           onTouchEnd={handleShootEnd}
           onMouseDown={handleShootStart}
           onMouseUp={handleShootEnd}
+          title="Shoot"
         >
           SHOOT
         </button>
@@ -312,8 +295,9 @@ export function MobileControls() {
           style={styles.reloadButton}
           onTouchStart={handleReload}
           onMouseDown={handleReload}
+          title="Reload (R)"
         >
-          RELOAD (R)
+          R
         </button>
 
         {/* Get Button */}
@@ -321,8 +305,9 @@ export function MobileControls() {
           style={styles.getButton}
           onTouchStart={handleGet}
           onMouseDown={handleGet}
+          title="Get (E)"
         >
-          GET (E)
+          E
         </button>
       </div>
 
@@ -343,7 +328,7 @@ const styles: Record<string, React.CSSProperties> = {
     height: "120px",
     zIndex: 10000,
     pointerEvents: "auto",
-    touchAction: "none",
+    touchAction: "manipulation",
   },
   joystickBg: {
     position: "absolute",
@@ -376,7 +361,7 @@ const styles: Record<string, React.CSSProperties> = {
     gap: "15px",
     zIndex: 10000,
     pointerEvents: "auto",
-    touchAction: "none",
+    touchAction: "manipulation",
   },
   shootButton: {
     padding: "15px 30px",
@@ -384,38 +369,53 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: "bold",
     backgroundColor: "rgba(255, 0, 0, 0.7)",
     color: "white",
-    border: "2px solid rgba(255, 0, 0, 0.9)",
-    borderRadius: "8px",
+    border: "none",
+    borderRadius: "50%",
+    width: "60px",
+    height: "60px",
     cursor: "pointer",
     userSelect: "none",
     WebkitUserSelect: "none",
-    touchAction: "none",
+    touchAction: "manipulation",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
   },
   reloadButton: {
     padding: "12px 24px",
-    fontSize: "14px",
+    fontSize: "12px",
     fontWeight: "bold",
     backgroundColor: "rgba(255, 165, 0, 0.7)",
     color: "white",
-    border: "2px solid rgba(255, 165, 0, 0.9)",
-    borderRadius: "8px",
+    border: "none",
+    borderRadius: "50%",
+    width: "50px",
+    height: "50px",
     cursor: "pointer",
     userSelect: "none",
     WebkitUserSelect: "none",
-    touchAction: "none",
+    touchAction: "manipulation",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
   },
   getButton: {
     padding: "12px 24px",
-    fontSize: "14px",
+    fontSize: "12px",
     fontWeight: "bold",
     backgroundColor: "rgba(0, 200, 100, 0.7)",
     color: "white",
-    border: "2px solid rgba(0, 200, 100, 0.9)",
-    borderRadius: "8px",
+    border: "none",
+    borderRadius: "50%",
+    width: "50px",
+    height: "50px",
     cursor: "pointer",
     userSelect: "none",
     WebkitUserSelect: "none",
-    touchAction: "none",
+    touchAction: "manipulation",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
   },
   gyroNotice: {
     position: "fixed",
