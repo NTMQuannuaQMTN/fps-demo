@@ -336,7 +336,7 @@ export function MobileControls() {
 
       {/* Gyro permission button (optional) */}
       <div style={styles.gyroNotice}>
-        Gyro & finger look enabled
+        Swipe to look • Gyro enabled
       </div>
     </div>
   )
