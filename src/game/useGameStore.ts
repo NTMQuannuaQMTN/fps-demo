@@ -1,6 +1,13 @@
 import { create } from "zustand"
 import { PISTOL, type Weapon } from "./weapons"
 
+type PelletHit = {
+  id: string
+  x: number
+  y: number
+  timestamp: number
+}
+
 type GameState = {
   hp: number
   weapon: Weapon
@@ -17,6 +24,7 @@ type GameState = {
   startTime: number
   survivedSeconds: number
   sessionId: number
+  pelletHits: PelletHit[]
 
   setHp: (fn: (hp: number) => number) => void
   setMobsLeft: (value: number | ((m: number) => number)) => void
@@ -28,6 +36,8 @@ type GameState = {
   recordCombatAction: () => void
   flashHitMarker: () => void
   setOrbProgress: (value: number) => void
+  addPelletHit: (x: number, y: number) => void
+  removePelletHit: (id: string) => void
   resetGame: () => void
 }
 
@@ -50,6 +60,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   startTime: Date.now(),
   survivedSeconds: 0,
   sessionId: 0,
+  pelletHits: [],
 
   setHp: (fn) => set((s) => {
     if (s.gameOver) return { hp: 0 }
@@ -82,6 +93,20 @@ export const useGameStore = create<GameState>((set, get) => ({
     hitMarkerTimeout = setTimeout(() => set({ hitMarkerVisible: false }), 120)
   },
   setOrbProgress: (value) => set({ orbProgress: Math.max(0, Math.min(1, value)) }),
+
+  addPelletHit: (x: number, y: number) => {
+    const id = crypto.randomUUID()
+    set((s) => ({ pelletHits: [...s.pelletHits, { id, x, y, timestamp: Date.now() }] }))
+    
+    // Auto-remove after 300ms
+    setTimeout(() => {
+      get().removePelletHit(id)
+    }, 300)
+  },
+
+  removePelletHit: (id: string) => {
+    set((s) => ({ pelletHits: s.pelletHits.filter((h) => h.id !== id) }))
+  },
 
   shoot: () => {
     const { ammo, isReloading, gameOver } = get()
@@ -144,6 +169,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       startTime: Date.now(),
       survivedSeconds: 0,
       sessionId: s.sessionId + 1,
+      pelletHits: [],
     }
   }),
 }))

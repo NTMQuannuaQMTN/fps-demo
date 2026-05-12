@@ -15,6 +15,7 @@ export function HUD() {
     const gameOver = useGameStore((s) => s.gameOver)
     const survivedSeconds = useGameStore((s) => s.survivedSeconds)
     const resetGame = useGameStore((s) => s.resetGame)
+    const pelletHits = useGameStore((s) => s.pelletHits)
     const score = kills * 100
     const exp = useProgressionStore((s) => s.exp)
     const nextExp = useProgressionStore((s) => s.nextExp)
@@ -50,6 +51,18 @@ export function HUD() {
 
     return (
         <div style={styles.container}>
+            <style>{`
+                @keyframes fadeOut {
+                    from {
+                        opacity: 1;
+                        transform: translate(-50%, -50%) scale(1);
+                    }
+                    to {
+                        opacity: 0;
+                        transform: translate(-50%, -50%) scale(0.5);
+                    }
+                }
+            `}</style>
             {/* Crosshair */}
             <div style={styles.crosshair}>+</div>
 
@@ -65,6 +78,17 @@ export function HUD() {
             )}
 
             {hitMarkerVisible && <div style={styles.hitMarker}>X</div>}
+
+            {pelletHits.map((hit) => (
+                <div
+                    key={hit.id}
+                    style={{
+                        ...styles.pelletHit,
+                        left: `${50 + hit.x}%`,
+                        top: `${50 + hit.y}%`,
+                    }}
+                />
+            ))}
 
             {/* Top - Score and remaining mobs */}
             <div style={styles.top}>
@@ -155,10 +179,21 @@ const styles: any = {
         top: "50%",
         left: "50%",
         transform: "translate(-50%, -50%)",
-        fontSize: "42px",
+        fontSize: "24px",
         color: "#ff2a2a",
         fontWeight: "900",
         textShadow: "0 0 12px rgba(255, 42, 42, 0.9)",
+    },
+    pelletHit: {
+        position: "absolute",
+        width: "8px",
+        height: "8px",
+        borderRadius: "50%",
+        background: "#ffff00",
+        boxShadow: "0 0 6px rgba(255, 255, 0, 0.8)",
+        transform: "translate(-50%, -50%)",
+        pointerEvents: "none",
+        animation: "fadeOut 0.3s ease-out forwards",
     },
     top: {
         position: "absolute",

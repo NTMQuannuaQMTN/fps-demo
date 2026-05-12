@@ -65,10 +65,10 @@ export const useProgressionStore = create<State>((set, get) => ({
         set((state) => {
             const stats = { ...state.stats }
 
-            if (stat === "speed") stats.speed += 0.2
+            if (stat === "speed") stats.speed += 0.1
             if (stat === "attack") stats.attack += 5
             if (stat === "defense") stats.defense += 3
-            if (stat === "luck") stats.luck += 0.02
+            if (stat === "luck") stats.luck += 1
             if (stat === "hp") stats.hp += 10
 
             return {

@@ -5,6 +5,8 @@ export type Weapon = {
   magSize: number
   reloadTime: number
   spread: number
+  pellets: number
+  autoShoot: boolean
   recoil: {
     vertical: number
     horizontal: number
@@ -19,6 +21,8 @@ export const ARKA: Weapon = {
   magSize: 30,
   reloadTime: 4,
   spread: 0.01,
+  pellets: 1,
+  autoShoot: true,
   recoil: {
     vertical: 0.2,
     horizontal: 0.1,
@@ -33,6 +37,8 @@ export const PISTOL: Weapon = {
   magSize: 7,
   reloadTime: 2,
   spread: 0.01,
+  pellets: 1,
+  autoShoot: false,
   recoil: {
     vertical: 0.08,
     horizontal: 0.06,
@@ -47,6 +53,8 @@ export const MERBON: Weapon = {
   magSize: 30,
   reloadTime: 3,
   spread: 0.011,
+  pellets: 1,
+  autoShoot: true,
   recoil: {
     vertical: 0.16,
     horizontal: 0.1,
@@ -61,6 +69,8 @@ export const EASY_SMG: Weapon = {
   magSize: 25,
   reloadTime: 2,
   spread: 0.02,
+  pellets: 1,
+  autoShoot: true,
   recoil: {
     vertical: 0.12,
     horizontal: 0.08,
@@ -75,10 +85,44 @@ export const BEEZONE_SMG: Weapon = {
   magSize: 53,
   reloadTime: 5,
   spread: 0.03,
+  pellets: 1,
+  autoShoot: true,
   recoil: {
     vertical: 0.18,
     horizontal: 0.12,
     recovery: 6,
+  },
+}
+
+export const SOULEIGHT: Weapon = {
+  name: "SoulEight",
+  damage: 100,
+  rpm: 120,
+  magSize: 2,
+  reloadTime: 4,
+  spread: 0.1,
+  pellets: 10,
+  autoShoot: false,
+  recoil: {
+    vertical: 0.5,
+    horizontal: 0.3,
+    recovery: 3,
+  },
+}
+
+export const TWELVEKARAT: Weapon = {
+  name: "12Karat",
+  damage: 120,
+  rpm: 180,
+  magSize: 5,
+  reloadTime: 3,
+  spread: 0.16,
+  pellets: 12,
+  autoShoot: false,
+  recoil: {
+    vertical: 0.4,
+    horizontal: 0.25,
+    recovery: 4,
   },
 }
 
@@ -89,6 +133,8 @@ export const ARKANGER: Weapon = {
   magSize: 30,
   reloadTime: 4,
   spread: 0.009,
+  pellets: 1,
+  autoShoot: true,
   recoil: {
     vertical: 0.08,
     horizontal: 0.08,
@@ -103,6 +149,8 @@ export const RIFLE: Weapon = {
   magSize: 24,
   reloadTime: 3.2,
   spread: 0.012,
+  pellets: 1,
+  autoShoot: true,
   recoil: {
     vertical: 0.16,
     horizontal: 0.12,
@@ -116,6 +164,8 @@ export const WEAPON_TIERS: Record<string, number> = {
   // Tier 2 reserved for incoming guns
   [EASY_SMG.name]: 2,
   [BEEZONE_SMG.name]: 2,
+  [SOULEIGHT.name]: 2,
+  [TWELVEKARAT.name]: 2,
   [ARKA.name]: 3,
   [MERBON.name]: 3,
   [ARKANGER.name]: 4,
@@ -124,21 +174,18 @@ export const WEAPON_TIERS: Record<string, number> = {
 
 export const WEAPONS_BY_TIER: Record<number, Weapon[]> = {
   1: [PISTOL],
-  2: [EASY_SMG, BEEZONE_SMG],
+  2: [EASY_SMG, BEEZONE_SMG, SOULEIGHT, TWELVEKARAT],
   3: [ARKA, MERBON],
   4: [ARKANGER, RIFLE],
 }
 
 export const rollCrateWeapon = (currentWeapon: Weapon, luck: number): Weapon => {
-  // Collect all available weapons
-  const allWeapons = Object.values(WEAPONS_BY_TIER).flat()
-  
   // Luck influences weighted selection towards higher tiers
   const tierWeights: Record<number, number> = {
-    1: 0.1,
-    2: 0.2,
-    3: 0.4 + luck * 0.1,
-    4: 0.3 + luck * 0.2,
+    1: 0.8 * Math.pow(0.8, luck),
+    2: 0.5,
+    3: Math.pow(1.2, luck) - 1,
+    4: Math.pow(1.1, luck) - 1,
   }
   
   // Normalize weights
@@ -160,12 +207,12 @@ export const rollCrateWeapon = (currentWeapon: Weapon, luck: number): Weapon => 
   }
   
   // Pick random weapon from selected tier
+  console.log(luck, selectedTier, WEAPONS_BY_TIER[selectedTier].map(w => w.name))
   const tierWeapons = WEAPONS_BY_TIER[selectedTier].filter(w => w.name !== currentWeapon.name)
   
-  // If no other weapons in that tier, pick from all weapons except current
+  // If no other weapons in that tier, try again
   if (tierWeapons.length === 0) {
-    const otherWeapons = allWeapons.filter(w => w.name !== currentWeapon.name)
-    return otherWeapons[Math.floor(Math.random() * otherWeapons.length)]
+    return rollCrateWeapon(currentWeapon, luck)
   }
   
   return tierWeapons[Math.floor(Math.random() * tierWeapons.length)]

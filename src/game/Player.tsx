@@ -119,6 +119,10 @@ export function Player() {
         (s) => s.gameOver
     )
 
+    const addPelletHit = useGameStore(
+        (s) => s.addPelletHit
+    )
+
     const getMeshes = useEntityStore(
         (s) => s.getMeshes
     )
@@ -287,73 +291,87 @@ export function Player() {
             const raycaster =
                 raycasterRef.current
 
-            // =========================
-            // SPREAD
-            // =========================
+            const damagePerPellet = weapon.damage / weapon.pellets
 
-            const spreadX =
-                (Math.random() - 0.5) *
-                weapon.spread
+            let hitSomething = false
 
-            const spreadY =
-                (Math.random() - 0.5) *
-                weapon.spread
+            for (let i = 0; i < weapon.pellets; i++) {
+                // =========================
+                // SPREAD
+                // =========================
 
-            const aimX =
-                spreadX +
-                recoilRef.current.x
+                const spreadX =
+                    (Math.random() - 0.5) *
+                    weapon.spread
 
-            const aimY =
-                spreadY
+                const spreadY =
+                    (Math.random() - 0.5) *
+                    weapon.spread
 
-            raycaster.setFromCamera(
-                new THREE.Vector2(
-                    aimX,
-                    aimY
-                ),
-                camera
-            )
+                const aimX =
+                    spreadX +
+                    recoilRef.current.x
 
-            // =========================
-            // HIT DETECTION
-            // =========================
+                const aimY =
+                    spreadY
 
-            const meshes =
-                getMeshes()
-
-            const hits =
-                raycaster.intersectObjects(
-                    meshes,
-                    false
+                raycaster.setFromCamera(
+                    new THREE.Vector2(
+                        aimX,
+                        aimY
+                    ),
+                    camera
                 )
 
-            if (hits.length > 0) {
-                let obj:
-                    | THREE.Object3D
-                    | null =
-                    hits[0].object
+                // =========================
+                // HIT DETECTION
+                // =========================
 
-                let entity =
-                    getEntityByMesh(
-                        obj
+                const meshes =
+                    getMeshes()
+
+                const hits =
+                    raycaster.intersectObjects(
+                        meshes,
+                        false
                     )
 
-                while (
-                    !entity &&
-                    obj?.parent
-                ) {
-                    obj = obj.parent
+                if (hits.length > 0) {
+                    let obj:
+                        | THREE.Object3D
+                        | null =
+                        hits[0].object
 
-                    entity =
+                    let entity =
                         getEntityByMesh(
                             obj
                         )
+
+                    while (
+                        !entity &&
+                        obj?.parent
+                    ) {
+                        obj = obj.parent
+
+                        entity =
+                            getEntityByMesh(
+                                obj
+                            )
+                    }
+
+                    if (entity) {
+                        entity.hit(damagePerPellet + attackStat / weapon.pellets)
+                        hitSomething = true
+
+                        // Show pellet hit indicator for shotguns
+                        if (weapon.pellets > 1) {
+                            addPelletHit(aimX * 50, aimY * 50)
+                        }
+                    }
                 }
+            }
 
-                entity?.hit(
-                    weapon.damage + attackStat
-                )
-
+            if (hitSomething) {
                 flashHitMarker()
 
                 document.body.style.background =
@@ -466,6 +484,8 @@ export function Player() {
         flashHitMarker,
         gameOver,
         camera,
+        addPelletHit,
+        attackStat,
     ])
 
     // =========================
@@ -510,7 +530,7 @@ export function Player() {
         // AUTO FIRE
         // =========================
 
-        if (isMouseDown.current || mobileInputRef.current.isShooting) {
+        if ((isMouseDown.current || mobileInputRef.current.isShooting) && weapon.autoShoot) {
             const delay =
                 60000 / weapon.rpm
 
