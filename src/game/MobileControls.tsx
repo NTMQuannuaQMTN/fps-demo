@@ -10,6 +10,7 @@ export type MobileInputState = {
   gyroPitch: number
   fingerLookX: number
   fingerLookY: number
+  isSwipeLooking: boolean
 }
 
 const DEFAULT_STATE: MobileInputState = {
@@ -22,6 +23,7 @@ const DEFAULT_STATE: MobileInputState = {
   gyroPitch: 0,
   fingerLookX: 0,
   fingerLookY: 0,
+  isSwipeLooking: false,
 }
 
 export function MobileControls() {
@@ -153,7 +155,10 @@ export function MobileControls() {
 
   useEffect(() => {
     const handleDeviceOrientation = (event: DeviceOrientationEvent) => {
-      if (event.alpha === null || event.beta === null || event.gamma === null) return
+      // Type-safe null checks
+      if (typeof event.alpha !== "number" || typeof event.beta !== "number" || typeof event.gamma !== "number") {
+        return
+      }
 
       const alpha = event.alpha // Z axis rotation (0-360)
       const beta = event.beta // X axis rotation (-180 to 180)
@@ -165,7 +170,7 @@ export function MobileControls() {
       lastGyroRef.current = { alpha, beta, gamma }
 
       // Convert to radians and apply sensitivity
-      const sensitivity = 0.01
+      const sensitivity = 0.005
       const yaw = deltaAlpha * sensitivity
       const pitch = deltaBeta * sensitivity
 
@@ -184,54 +189,72 @@ export function MobileControls() {
           typeof (DeviceOrientationEvent as any).requestPermission === "function"
         ) {
           const permission = await (DeviceOrientationEvent as any).requestPermission()
+          console.log("Gyro permission:", permission)
           if (permission === "granted") {
-            window.addEventListener("deviceorientation", handleDeviceOrientation, true)
+            window.addEventListener("deviceorientation", handleDeviceOrientation)
           }
         } else if (typeof DeviceOrientationEvent !== "undefined") {
           // Android and non-iOS browsers
-          window.addEventListener("deviceorientation", handleDeviceOrientation, true)
+          console.log("Gyro enabled (non-iOS)")
+          window.addEventListener("deviceorientation", handleDeviceOrientation)
         }
       } catch (err) {
         console.error("Gyro permission error:", err)
-        // Fallback: try to listen anyway
-        if (typeof DeviceOrientationEvent !== "undefined") {
-          window.addEventListener("deviceorientation", handleDeviceOrientation, true)
-        }
       }
     }
 
     handlePermission()
 
     return () => {
-      window.removeEventListener("deviceorientation", handleDeviceOrientation, true)
+      window.removeEventListener("deviceorientation", handleDeviceOrientation)
     }
   }, [])
 
   // =========================
-  // FINGER LOOK (TWO FINGER DRAG)
+  // SCREEN SWIPE LOOK (SINGLE FINGER ANYWHERE EXCEPT JOYSTICK)
   // =========================
 
   useEffect(() => {
+    const joystickContainer = joystickContainerRef.current
+
+    const isPointInJoystick = (x: number, y: number): boolean => {
+      if (!joystickContainer) return false
+      const rect = joystickContainer.getBoundingClientRect()
+      // Add some padding for easier interaction
+      const padding = 20
+      return (
+        x >= rect.left - padding &&
+        x <= rect.right + padding &&
+        y >= rect.top - padding &&
+        y <= rect.bottom + padding
+      )
+    }
+
     const handleTouchStart = (e: TouchEvent) => {
-      if (e.touches.length === 2) {
-        fingerLookActiveRef.current = true
-        lastFingerLookRef.current = {
-          x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
-          y: (e.touches[0].clientY + e.touches[1].clientY) / 2,
+      if (e.touches.length === 1) {
+        const touch = e.touches[0]
+        // Don't start swipe look if touch is in joystick area
+        if (!isPointInJoystick(touch.clientX, touch.clientY)) {
+          fingerLookActiveRef.current = true
+          lastFingerLookRef.current = {
+            x: touch.clientX,
+            y: touch.clientY,
+          }
         }
       }
     }
 
     const handleTouchMove = (e: TouchEvent) => {
-      if (!fingerLookActiveRef.current || e.touches.length !== 2) return
+      if (!fingerLookActiveRef.current || e.touches.length !== 1) return
 
-      const currentX = (e.touches[0].clientX + e.touches[1].clientX) / 2
-      const currentY = (e.touches[0].clientY + e.touches[1].clientY) / 2
+      const touch = e.touches[0]
+      const currentX = touch.clientX
+      const currentY = touch.clientY
 
       const dx = currentX - lastFingerLookRef.current.x
       const dy = currentY - lastFingerLookRef.current.y
 
-      const sensitivity = 0.02
+      const sensitivity = 0.015
 
       setMobileInput((prev) => ({
         ...prev,
@@ -243,7 +266,7 @@ export function MobileControls() {
     }
 
     const handleTouchEnd = (e: TouchEvent) => {
-      if (e.touches.length < 2) {
+      if (e.touches.length === 0) {
         fingerLookActiveRef.current = false
         setMobileInput((prev) => ({
           ...prev,
