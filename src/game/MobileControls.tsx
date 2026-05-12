@@ -231,7 +231,7 @@ export function MobileControls() {
       const dx = currentX - lastFingerLookRef.current.x
       const dy = currentY - lastFingerLookRef.current.y
 
-      const sensitivity = 0.2
+      const sensitivity = 0.02
 
       setMobileInput((prev) => ({
         ...prev,
