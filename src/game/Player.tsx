@@ -320,15 +320,19 @@ export function Player() {
                 )
 
                 // =========================
-                // HIT DETECTION
+                // HIT DETECTION (walls stop bullets)
                 // =========================
 
-                const meshes =
-                    getMeshes()
+                // Raycast against everything: zombie meshes + static colliders (walls, props).
+                // The first hit determines what the bullet reaches — if it's a wall, it stops there.
+                const allTargets: THREE.Object3D[] = [
+                    ...getMeshes(),
+                    ...((window as any).colliders || []),
+                ]
 
                 const hits =
                     raycaster.intersectObjects(
-                        meshes,
+                        allTargets,
                         false
                     )
 
@@ -345,7 +349,8 @@ export function Player() {
 
                     while (
                         !entity &&
-                        obj?.parent
+                        obj?.parent &&
+                        obj.parent.type !== "Scene"
                     ) {
                         obj = obj.parent
 
@@ -364,6 +369,7 @@ export function Player() {
                             addPelletHit(aimX * 50, aimY * 50)
                         }
                     }
+                    // If no entity: hit a wall/prop — bullet stops, no damage (correct)
                 }
             }
 

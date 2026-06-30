@@ -17,7 +17,7 @@ const generateRandomObstacles = (count: number) => {
     const heightVariation = Math.random() * 2
     
     obstacles.push({
-      position: [x, 0.5 + heightVariation, z] as [number, number, number],
+      position: [x, (heightVariation + 0.8) / 2, z] as [number, number, number],
       scale: [scale, heightVariation + 0.8, scale] as [number, number, number],
       color: colors[Math.floor(Math.random() * colors.length)],
     })

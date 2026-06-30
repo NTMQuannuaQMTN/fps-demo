@@ -18,6 +18,7 @@ export function ExpOrb({ position, onRemove }: any) {
     const dead = useRef(false)
     const orbId = useRef(crypto.randomUUID())
     const combatTimestampRef = useRef(lastCombatTime)
+    const ownsInfo = useRef(false)
 
     useEffect(() => {
         return () => {
@@ -55,6 +56,14 @@ export function ExpOrb({ position, onRemove }: any) {
         const dist = ref.current.position.distanceTo(camera.position)
         const activeOrbId = (window as any).activeOrbId as string | null
         const ownsInteraction = activeOrbId === orbId.current
+
+        if (dist < 3) {
+            ;(window as any).nearInteractableInfo = { type: 'orb', holding: hold.current > 0 }
+            ownsInfo.current = true
+        } else if (ownsInfo.current) {
+            ;(window as any).nearInteractableInfo = null
+            ownsInfo.current = false
+        }
 
         const holdTime = 3 / Math.max(0.5, speed)
 

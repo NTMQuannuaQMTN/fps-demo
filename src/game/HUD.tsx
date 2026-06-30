@@ -34,6 +34,7 @@ export function HUD() {
     const hpPercent = Math.max(0, Math.min(100, (hp / maxHp) * 100))
     const expPercent = (exp / nextExp) * 100
     const [now, setNow] = useState(Date.now())
+    const [nearInfo, setNearInfo] = useState<{ type: 'crate' | 'orb'; holding: boolean; blocked?: boolean } | null>(null)
 
     useEffect(() => {
         const needsTick = isReloading || wavePhase === "break"
@@ -45,6 +46,13 @@ export function HUD() {
 
         return () => clearInterval(id)
     }, [isReloading, wavePhase])
+
+    useEffect(() => {
+        const id = setInterval(() => {
+            setNearInfo((window as any).nearInteractableInfo ?? null)
+        }, 80)
+        return () => clearInterval(id)
+    }, [])
 
     const reloadSecondsLeft = Math.max(0, (reloadEndAt - now) / 1000)
     const breakSecondsLeft = Math.max(0, (breakEndsAt - now) / 1000)
@@ -79,6 +87,17 @@ export function HUD() {
                     }}
                 >
                     <div style={styles.orbRingInner} />
+                    <div style={styles.lootingLabel}>
+                        {nearInfo?.type === 'crate' ? 'LOOTING CRATE...' : 'COLLECTING XP...'}
+                    </div>
+                </div>
+            )}
+
+            {nearInfo && !nearInfo.blocked && orbProgress === 0 && (
+                <div style={styles.interactHint}>
+                    {nearInfo.type === 'crate'
+                        ? 'Hold E / GET to loot crate'
+                        : 'Hold E / GET to collect XP'}
                 </div>
             )}
 
@@ -329,6 +348,31 @@ const styles: any = {
     reloadText: {
         color: "#ffd166",
         fontSize: "14px",
+    },
+    interactHint: {
+        position: "absolute",
+        top: "calc(50% + 52px)",
+        left: "50%",
+        transform: "translateX(-50%)",
+        fontSize: "15px",
+        fontWeight: "bold",
+        color: "#ffffff",
+        textShadow: "0 0 10px rgba(0,0,0,0.9)",
+        background: "rgba(0,0,0,0.5)",
+        padding: "4px 12px",
+        borderRadius: "6px",
+        whiteSpace: "nowrap",
+    },
+    lootingLabel: {
+        position: "absolute",
+        bottom: "-28px",
+        left: "50%",
+        transform: "translateX(-50%)",
+        fontSize: "13px",
+        fontWeight: "bold",
+        color: "#00f6ff",
+        textShadow: "0 0 8px rgba(0,246,255,0.8)",
+        whiteSpace: "nowrap",
     },
     gameOverOverlay: {
         position: "absolute",

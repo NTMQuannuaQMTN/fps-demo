@@ -9,6 +9,7 @@ export function Crate({ position }: { position: [number, number, number] }) {
   const meshRef = useRef<THREE.Mesh>(null!)
   const crateId = useRef(crypto.randomUUID())
   const hold = useRef(0)
+  const ownsInfo = useRef(false)
   const [opened, setOpened] = useState(false)
 
   const { camera } = useThree()
@@ -36,6 +37,14 @@ export function Crate({ position }: { position: [number, number, number] }) {
     const ownsInteraction = activeCrateId === crateId.current
     const inCombatWindow = Date.now() - lastCombatTime < 900
     const holdTime = 3 / Math.max(0.5, speed)
+
+    if (dist < 3 && !opened) {
+      ;(window as any).nearInteractableInfo = { type: 'crate', holding: hold.current > 0, blocked: inCombatWindow }
+      ownsInfo.current = true
+    } else if (ownsInfo.current) {
+      ;(window as any).nearInteractableInfo = null
+      ownsInfo.current = false
+    }
 
     if (inCombatWindow) {
       if (ownsInteraction) {
