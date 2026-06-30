@@ -8,9 +8,22 @@ import * as THREE from "three"
 
 const BREAK_TIME = 10
 const ZOMBIE_GROUND_Y = 0.9
-const CRATE_LIFETIME = 120 // 2 minutes in seconds
-const CRATE_SPAWN_MIN = 1
-const CRATE_SPAWN_MAX = 2
+const CRATE_LIFETIME = 180
+const CRATE_SPAWN_MIN = 2
+const CRATE_SPAWN_MAX = 4
+
+// Returns true when the XZ position is clear of all static colliders.
+const isSpawnClear = (x: number, z: number): boolean => {
+    const colliders = (window as any).colliders as THREE.Object3D[] | undefined
+    if (!colliders) return true
+    const pt = new THREE.Vector3(x, ZOMBIE_GROUND_Y, z)
+    for (const c of colliders) {
+        if (!c || c.userData?.dynamicCollider) continue
+        const box = new THREE.Box3().setFromObject(c)
+        if (box.distanceToPoint(pt) < 0.9) return false
+    }
+    return true
+}
 
 type SpawnedCrate = {
   id: string
@@ -65,11 +78,15 @@ export function WaveManager() {
 
       if (aliveCount.current >= 50) return
 
-      const angle = Math.random() * Math.PI * 2
-      const dist = 20 + Math.random() * 20
-
-      const x = Math.cos(angle) * dist
-      const z = Math.sin(angle) * dist
+      // Find a position not inside a static obstacle (up to 12 attempts)
+      let x = 0, z = 0
+      for (let attempt = 0; attempt < 12; attempt++) {
+        const angle = Math.random() * Math.PI * 2
+        const dist = 20 + Math.random() * 20
+        x = Math.cos(angle) * dist
+        z = Math.sin(angle) * dist
+        if (isSpawnClear(x, z)) break
+      }
 
       setZombies((prev) => [
         ...prev,

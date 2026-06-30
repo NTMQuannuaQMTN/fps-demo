@@ -39,9 +39,14 @@ const randomObstacles = generateRandomObstacles(20)
 const props = [...staticProps, ...randomObstacles]
 
 const crates: Array<[number, number, number]> = [
-  [-10, 0.6, 12],
-  [8, 0.6, -14],
-  [22, 0.6, 6],
+  [-10, 0.6,  12],
+  [  8, 0.6, -14],
+  [ 22, 0.6,   6],
+  [-22, 0.6, -12],
+  [ 14, 0.6,  22],
+  [ -4, 0.6, -28],
+  [ 30, 0.6, -20],
+  [-32, 0.6,  18],
 ]
 
 export default function Scene() {

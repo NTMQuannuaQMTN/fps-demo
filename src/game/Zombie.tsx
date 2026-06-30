@@ -4,10 +4,9 @@ import * as THREE from "three"
 import { useGameStore } from "./useGameStore"
 import { useEntityStore } from "./useEntityStore"
 import { useProgressionStore } from "./useProgressionStore"
+import { playZombieGrowl } from "./audio"
 
 const GROUND_Y = 0.9
-const ZOMBIE_RADIUS = 0.4
-const ZOMBIE_LENGTH = 1
 const ZOMBIE_SPEED = 2
 
 const colliderBoxCache = new WeakMap<THREE.Object3D, THREE.Box3>()
@@ -47,6 +46,7 @@ export function Zombie({ position, onDeath }: any) {
     const losRaycaster = useRef(new THREE.Raycaster())
     const lastKnownPlayerPos = useRef(new THREE.Vector3())
     const hasLastKnown = useRef(false)
+    const hasAlerted = useRef(false)
 
     const removeFromColliders = () => {
         const colliders = (window as any).colliders as THREE.Object3D[] | undefined
@@ -144,6 +144,12 @@ export function Zombie({ position, onDeath }: any) {
         if (canSeePlayer) {
             lastKnownPlayerPos.current.set(playerPos.x, GROUND_Y, playerPos.z)
             hasLastKnown.current = true
+
+            // Play growl once when zombie first spots the player within 14 units
+            if (!hasAlerted.current && distToPlayer < 14) {
+                playZombieGrowl()
+                hasAlerted.current = true
+            }
         }
 
         // ── Movement target (last-known pos when LOS blocked) ─────
