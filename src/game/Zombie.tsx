@@ -183,38 +183,29 @@ export function Zombie({ position, onDeath }: any) {
         recordCombatAction()
     })
 
-    // ZOMBIE_GROUND_Y=0.9 is capsule center. Capsule height = ZOMBIE_LENGTH + 2*ZOMBIE_RADIUS = 1.8.
-    // Head center in local space: 0.9 (capsule top) + 0.28 (head radius) = 1.18
+    // Group center at GROUND_Y=0.9. Body sphere r=0.55 → center local y=-0.35 (bottom touches ground).
+    // Head sphere r=0.3 sits on top of body: local y = -0.35 + 0.55 + 0.3 = 0.5
     return (
         <group ref={ref} position={position}>
-            {/* Body */}
-            <mesh castShadow>
-                <capsuleGeometry args={[ZOMBIE_RADIUS, ZOMBIE_LENGTH, 8, 12]} />
-                <meshStandardMaterial color="#3a5c28" roughness={0.85} metalness={0.0} />
+            {/* Round red body */}
+            <mesh position={[0, -0.35, 0]} castShadow>
+                <sphereGeometry args={[0.55, 14, 12]} />
+                <meshStandardMaterial color="#ff2020" emissive="#cc0000" emissiveIntensity={0.35} roughness={0.7} />
             </mesh>
-            {/* Arms suggestion — flat cylinders on each side */}
-            <mesh position={[-0.45, 0.1, 0]} rotation={[0, 0, 0.5]} castShadow>
-                <capsuleGeometry args={[0.09, 0.55, 4, 6]} />
-                <meshStandardMaterial color="#3a5c28" roughness={0.85} metalness={0.0} />
-            </mesh>
-            <mesh position={[0.45, 0.1, 0]} rotation={[0, 0, -0.5]} castShadow>
-                <capsuleGeometry args={[0.09, 0.55, 4, 6]} />
-                <meshStandardMaterial color="#3a5c28" roughness={0.85} metalness={0.0} />
-            </mesh>
-            {/* Head */}
-            <mesh position={[0, 1.18, 0]} castShadow>
+            {/* Round red head */}
+            <mesh position={[0, 0.5, 0]} castShadow>
                 <sphereGeometry args={[0.3, 12, 10]} />
-                <meshStandardMaterial color="#a8906a" roughness={0.9} metalness={0.0} />
+                <meshStandardMaterial color="#ff3322" emissive="#cc0000" emissiveIntensity={0.3} roughness={0.7} />
             </mesh>
             {/* Left eye */}
-            <mesh position={[-0.1, 1.29, 0.26]}>
-                <sphereGeometry args={[0.055, 6, 5]} />
-                <meshStandardMaterial color="#ff1500" emissive="#ff1500" emissiveIntensity={2.5} />
+            <mesh position={[-0.11, 0.6, 0.26]}>
+                <sphereGeometry args={[0.06, 7, 6]} />
+                <meshStandardMaterial color="#ffee44" emissive="#ffee44" emissiveIntensity={3.0} />
             </mesh>
             {/* Right eye */}
-            <mesh position={[0.1, 1.29, 0.26]}>
-                <sphereGeometry args={[0.055, 6, 5]} />
-                <meshStandardMaterial color="#ff1500" emissive="#ff1500" emissiveIntensity={2.5} />
+            <mesh position={[0.11, 0.6, 0.26]}>
+                <sphereGeometry args={[0.06, 7, 6]} />
+                <meshStandardMaterial color="#ffee44" emissive="#ffee44" emissiveIntensity={3.0} />
             </mesh>
         </group>
     )
