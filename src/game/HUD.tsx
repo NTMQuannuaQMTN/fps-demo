@@ -10,6 +10,9 @@ export function HUD() {
     const weapon = useGameStore((s) => s.weapon)
     const mobsLeft = useGameStore((s) => s.mobsLeft)
     const kills = useGameStore((s) => s.kills)
+    const wave = useGameStore((s) => s.wave)
+    const wavePhase = useGameStore((s) => s.wavePhase)
+    const breakEndsAt = useGameStore((s) => s.breakEndsAt)
     const hitMarkerVisible = useGameStore((s) => s.hitMarkerVisible)
     const orbProgress = useGameStore((s) => s.orbProgress)
     const gameOver = useGameStore((s) => s.gameOver)
@@ -33,16 +36,18 @@ export function HUD() {
     const [now, setNow] = useState(Date.now())
 
     useEffect(() => {
-        if (!isReloading) return
+        const needsTick = isReloading || wavePhase === "break"
+        if (!needsTick) return
 
         const id = setInterval(() => {
             setNow(Date.now())
         }, 100)
 
         return () => clearInterval(id)
-    }, [isReloading])
+    }, [isReloading, wavePhase])
 
     const reloadSecondsLeft = Math.max(0, (reloadEndAt - now) / 1000)
+    const breakSecondsLeft = Math.max(0, (breakEndsAt - now) / 1000)
 
     const handlePlayAgain = () => {
         resetProgression()
@@ -90,10 +95,16 @@ export function HUD() {
                 />
             ))}
 
-            {/* Top - Score and remaining mobs */}
+            {/* Top - wave, score, mobs */}
             <div style={styles.top}>
-                <div>Score: {score}</div>
-                <div>Mobs Left: {mobsLeft} | Kills: {kills}</div>
+                <div style={styles.waveLabel}>WAVE {wave}</div>
+                {wavePhase === "break" ? (
+                    <div style={styles.breakBanner}>
+                        Next wave in {Math.ceil(breakSecondsLeft)}s — loot crates!
+                    </div>
+                ) : (
+                    <div style={styles.topSub}>Mobs: {mobsLeft} | Kills: {kills} | Score: {score}</div>
+                )}
             </div>
 
             <div style={styles.leftStats}>
@@ -200,8 +211,28 @@ const styles: any = {
         top: 10,
         width: "100%",
         textAlign: "center",
-        fontSize: "18px",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: "4px",
+    },
+    waveLabel: {
+        fontSize: "22px",
+        fontWeight: "900",
+        letterSpacing: "3px",
+        color: "#ffffff",
+        textShadow: "0 0 14px rgba(255,100,0,0.8)",
+    },
+    topSub: {
+        fontSize: "14px",
+        color: "rgba(255,255,255,0.8)",
+    },
+    breakBanner: {
+        fontSize: "16px",
         fontWeight: "bold",
+        color: "#00f6ff",
+        textShadow: "0 0 12px rgba(0,246,255,0.7)",
+        letterSpacing: "0.5px",
     },
     leftStats: {
         position: "absolute",

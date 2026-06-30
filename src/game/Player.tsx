@@ -68,10 +68,6 @@ export function Player() {
         isShooting: false,
         isReloading: false,
         isGetting: false,
-        gyroYaw: 0,
-        gyroPitch: 0,
-        fingerLookX: 0,
-        fingerLookY: 0,
     })
 
     const keyboardHoldERef = useRef(false)
@@ -501,14 +497,20 @@ export function Player() {
         // =========================
 
         // =========================
-        // APPLY GYRO & FINGER LOOK
+        // APPLY GYRO & FINGER LOOK (consume window.mobileDeltas, reset after use)
         // =========================
 
-        yaw.current += mobileInputRef.current.gyroYaw
-        pitch.current += mobileInputRef.current.gyroPitch
-
-        yaw.current -= mobileInputRef.current.fingerLookX
-        pitch.current -= mobileInputRef.current.fingerLookY
+        const deltas = (window as any).mobileDeltas
+        if (deltas) {
+            yaw.current += deltas.gyroYaw || 0
+            pitch.current += deltas.gyroPitch || 0
+            yaw.current -= deltas.fingerLookX || 0
+            pitch.current -= deltas.fingerLookY || 0
+            deltas.gyroYaw = 0
+            deltas.gyroPitch = 0
+            deltas.fingerLookX = 0
+            deltas.fingerLookY = 0
+        }
 
         pitch.current =
             THREE.MathUtils.clamp(

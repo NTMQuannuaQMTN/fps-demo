@@ -6,11 +6,15 @@ export type MobileInputState = {
   isShooting: boolean
   isReloading: boolean
   isGetting: boolean
+}
+
+// Separate mutable accumulator for per-frame delta inputs.
+// Player.tsx reads and zeroes these each useFrame — never goes through React state.
+export type MobileDeltas = {
   gyroYaw: number
   gyroPitch: number
   fingerLookX: number
   fingerLookY: number
-  isSwipeLooking: boolean
 }
 
 const DEFAULT_STATE: MobileInputState = {
@@ -19,24 +23,28 @@ const DEFAULT_STATE: MobileInputState = {
   isShooting: false,
   isReloading: false,
   isGetting: false,
-  gyroYaw: 0,
-  gyroPitch: 0,
-  fingerLookX: 0,
-  fingerLookY: 0,
-  isSwipeLooking: false,
+}
+
+function getDeltas(): MobileDeltas {
+  if (!(window as any).mobileDeltas) {
+    ;(window as any).mobileDeltas = { gyroYaw: 0, gyroPitch: 0, fingerLookX: 0, fingerLookY: 0 }
+  }
+  return (window as any).mobileDeltas as MobileDeltas
 }
 
 export function MobileControls() {
   const joystickContainerRef = useRef<HTMLDivElement>(null)
   const joystickStickRef = useRef<HTMLDivElement>(null)
+  const rightButtonsRef = useRef<HTMLDivElement>(null)
   const [mobileInput, setMobileInput] = useState<MobileInputState>(DEFAULT_STATE)
-  const lastGyroRef = useRef({ alpha: 0, beta: 0, gamma: 0 })
+  const lastGyroRef = useRef({ alpha: 0, beta: 0, gamma: 0, initialized: false })
   const lastFingerLookRef = useRef({ x: 0, y: 0 })
   const fingerLookActiveRef = useRef(false)
+  const [gyroPermission, setGyroPermission] = useState<"unknown" | "granted" | "denied" | "na">("unknown")
 
-  // Store mobile input in window for Player.tsx to access
+  // Sync instantaneous inputs to window for Player.tsx poll
   useEffect(() => {
-    (window as any).mobileInput = mobileInput
+    ;(window as any).mobileInput = mobileInput
   }, [mobileInput])
 
   // =========================
@@ -50,6 +58,7 @@ export function MobileControls() {
 
     const radius = 50
     const handleTouchMove = (e: TouchEvent) => {
+      e.preventDefault()
       if (e.touches.length === 0) return
 
       const touch = e.touches[0]
@@ -60,53 +69,35 @@ export function MobileControls() {
       const dx = touch.clientX - centerX
       const dy = touch.clientY - centerY
       const distance = Math.sqrt(dx * dx + dy * dy)
-      const maxDistance = radius
 
-      let joystickX = dx / maxDistance
-      let joystickY = -dy / maxDistance
+      let joystickX = dx / radius
+      let joystickY = -dy / radius
 
-      if (distance > maxDistance) {
-        joystickX = (dx / distance) * (maxDistance / maxDistance)
-        joystickY = (-dy / distance) * (maxDistance / maxDistance)
-      } else {
-        joystickX = dx / maxDistance
-        joystickY = -dy / maxDistance
+      if (distance > radius) {
+        joystickX = (dx / distance)
+        joystickY = (-dy / distance)
       }
 
       joystickX = Math.max(-1, Math.min(1, joystickX))
       joystickY = Math.max(-1, Math.min(1, joystickY))
 
-      const limitedDistance = Math.min(distance, maxDistance)
-      const stickX = (limitedDistance / maxDistance) * (dx / distance || 0) * radius
-      const stickY = (limitedDistance / maxDistance) * (dy / distance || 0) * radius
+      const limitedDist = Math.min(distance, radius)
+      const stickX = (limitedDist / radius) * (dx / distance || 0) * radius
+      const stickY = (limitedDist / radius) * (dy / distance || 0) * radius
 
       if (stick) {
         stick.style.transform = `translate(calc(-50% + ${stickX}px), calc(-50% + ${stickY}px))`
       }
 
-      setMobileInput((prev) => ({
-        ...prev,
-        joystickX,
-        joystickY,
-      }))
+      setMobileInput((prev) => ({ ...prev, joystickX, joystickY }))
     }
 
     const handleTouchEnd = () => {
-      if (stick) {
-        stick.style.transform = "translate(-50%, -50%)"
-      }
-      setMobileInput((prev) => ({
-        ...prev,
-        joystickX: 0,
-        joystickY: 0,
-      }))
+      if (stick) stick.style.transform = "translate(-50%, -50%)"
+      setMobileInput((prev) => ({ ...prev, joystickX: 0, joystickY: 0 }))
     }
 
-    // Bind to the joystick container to avoid interfering with page-level touch
-    // handling (scroll/zoom) which can cause the UI to flicker/disappear.
-    container.addEventListener("touchmove", handleTouchMove, {
-      passive: false,
-    })
+    container.addEventListener("touchmove", handleTouchMove, { passive: false })
     container.addEventListener("touchend", handleTouchEnd)
 
     return () => {
@@ -119,11 +110,13 @@ export function MobileControls() {
   // SHOOT BUTTON
   // =========================
 
-  const handleShootStart = () => {
+  const handleShootStart = (e: React.TouchEvent | React.MouseEvent) => {
+    e.stopPropagation()
     setMobileInput((prev) => ({ ...prev, isShooting: true }))
   }
 
-  const handleShootEnd = () => {
+  const handleShootEnd = (e: React.TouchEvent | React.MouseEvent) => {
+    e.stopPropagation()
     setMobileInput((prev) => ({ ...prev, isShooting: false }))
   }
 
@@ -131,148 +124,164 @@ export function MobileControls() {
   // RELOAD BUTTON
   // =========================
 
-  const handleReload = () => {
+  const handleReload = (e: React.TouchEvent | React.MouseEvent) => {
+    e.stopPropagation()
     setMobileInput((prev) => ({ ...prev, isReloading: true }))
-    setTimeout(() => {
-      setMobileInput((prev) => ({ ...prev, isReloading: false }))
-    }, 100)
+    setTimeout(() => setMobileInput((prev) => ({ ...prev, isReloading: false })), 100)
   }
 
   // =========================
   // GET BUTTON (E KEY)
   // =========================
 
-  const handleGet = () => {
+  const handleGet = (e: React.TouchEvent | React.MouseEvent) => {
+    e.stopPropagation()
     setMobileInput((prev) => ({ ...prev, isGetting: true }))
-    setTimeout(() => {
-      setMobileInput((prev) => ({ ...prev, isGetting: false }))
-    }, 100)
+    setTimeout(() => setMobileInput((prev) => ({ ...prev, isGetting: false })), 100)
   }
 
   // =========================
-  // GYRO
+  // GYRO (writes to window.mobileDeltas, not React state)
   // =========================
 
   useEffect(() => {
     const handleDeviceOrientation = (event: DeviceOrientationEvent) => {
-      // Type-safe null checks
-      if (typeof event.alpha !== "number" || typeof event.beta !== "number" || typeof event.gamma !== "number") {
+      if (typeof event.alpha !== "number" || typeof event.beta !== "number" || typeof event.gamma !== "number") return
+
+      const alpha = event.alpha
+      const beta = event.beta
+
+      if (!lastGyroRef.current.initialized) {
+        lastGyroRef.current = { alpha, beta, gamma: event.gamma ?? 0, initialized: true }
         return
       }
 
-      const alpha = event.alpha // Z axis rotation (0-360)
-      const beta = event.beta // X axis rotation (-180 to 180)
-      const gamma = event.gamma // Y axis rotation (-90 to 90)
-
-      const deltaAlpha = alpha - lastGyroRef.current.alpha
+      let deltaAlpha = alpha - lastGyroRef.current.alpha
       const deltaBeta = beta - lastGyroRef.current.beta
 
-      lastGyroRef.current = { alpha, beta, gamma }
+      // Handle 360→0 wraparound for alpha
+      if (deltaAlpha > 180) deltaAlpha -= 360
+      if (deltaAlpha < -180) deltaAlpha += 360
 
-      // Convert to radians and apply sensitivity
+      lastGyroRef.current = { alpha, beta, gamma: event.gamma ?? 0, initialized: true }
+
       const sensitivity = 0.005
-      const yaw = deltaAlpha * sensitivity
-      const pitch = deltaBeta * sensitivity
-
-      setMobileInput((prev) => ({
-        ...prev,
-        gyroYaw: prev.gyroYaw + yaw,
-        gyroPitch: prev.gyroPitch + pitch,
-      }))
+      // Accumulate directly — Player.tsx will consume and zero each frame
+      const d = getDeltas()
+      d.gyroYaw += deltaAlpha * sensitivity
+      d.gyroPitch += deltaBeta * sensitivity
     }
 
-    const handlePermission = async () => {
+    const enableGyro = async () => {
       try {
-        // iOS 13+
         if (
           typeof DeviceOrientationEvent !== "undefined" &&
           typeof (DeviceOrientationEvent as any).requestPermission === "function"
         ) {
-          const permission = await (DeviceOrientationEvent as any).requestPermission()
-          console.log("Gyro permission:", permission)
-          if (permission === "granted") {
-            window.addEventListener("deviceorientation", handleDeviceOrientation)
-          }
-        } else if (typeof DeviceOrientationEvent !== "undefined") {
-          // Android and non-iOS browsers
-          console.log("Gyro enabled (non-iOS)")
-          window.addEventListener("deviceorientation", handleDeviceOrientation)
+          // iOS 13+ requires user gesture — button handles this, skip auto-request
+          return
         }
+        // Android / non-iOS browsers: enable immediately
+        window.addEventListener("deviceorientation", handleDeviceOrientation)
+        setGyroPermission("granted")
       } catch (err) {
-        console.error("Gyro permission error:", err)
+        console.error("Gyro error:", err)
+        setGyroPermission("denied")
       }
     }
 
-    handlePermission()
+    enableGyro()
 
     return () => {
       window.removeEventListener("deviceorientation", handleDeviceOrientation)
     }
   }, [])
 
+  const requestGyroPermission = async () => {
+    try {
+      const permission = await (DeviceOrientationEvent as any).requestPermission()
+      if (permission === "granted") {
+        setGyroPermission("granted")
+        const handleDeviceOrientation = (event: DeviceOrientationEvent) => {
+          if (typeof event.alpha !== "number" || typeof event.beta !== "number") return
+
+          const alpha = event.alpha
+          const beta = event.beta
+
+          if (!lastGyroRef.current.initialized) {
+            lastGyroRef.current = { alpha, beta, gamma: event.gamma ?? 0, initialized: true }
+            return
+          }
+
+          let deltaAlpha = alpha - lastGyroRef.current.alpha
+          const deltaBeta = beta - lastGyroRef.current.beta
+
+          if (deltaAlpha > 180) deltaAlpha -= 360
+          if (deltaAlpha < -180) deltaAlpha += 360
+
+          lastGyroRef.current = { alpha, beta, gamma: event.gamma ?? 0, initialized: true }
+
+          const d = getDeltas()
+          d.gyroYaw += deltaAlpha * 0.005
+          d.gyroPitch += deltaBeta * 0.005
+        }
+        window.addEventListener("deviceorientation", handleDeviceOrientation)
+      } else {
+        setGyroPermission("denied")
+      }
+    } catch {
+      setGyroPermission("denied")
+    }
+  }
+
+  const needsGyroButton =
+    typeof DeviceOrientationEvent !== "undefined" &&
+    typeof (DeviceOrientationEvent as any).requestPermission === "function" &&
+    gyroPermission === "unknown"
+
   // =========================
-  // SCREEN SWIPE LOOK (SINGLE FINGER ANYWHERE EXCEPT JOYSTICK)
+  // SWIPE LOOK (right side of screen, excludes joystick and buttons)
   // =========================
 
   useEffect(() => {
     const joystickContainer = joystickContainerRef.current
+    const rightButtons = rightButtonsRef.current
 
-    const isPointInJoystick = (x: number, y: number): boolean => {
-      if (!joystickContainer) return false
-      const rect = joystickContainer.getBoundingClientRect()
-      // Add some padding for easier interaction
-      const padding = 20
-      return (
-        x >= rect.left - padding &&
-        x <= rect.right + padding &&
-        y >= rect.top - padding &&
-        y <= rect.bottom + padding
-      )
+    const isInElement = (el: HTMLElement | null, x: number, y: number, padding = 20): boolean => {
+      if (!el) return false
+      const rect = el.getBoundingClientRect()
+      return x >= rect.left - padding && x <= rect.right + padding && y >= rect.top - padding && y <= rect.bottom + padding
     }
 
     const handleTouchStart = (e: TouchEvent) => {
-      if (e.touches.length === 1) {
-        const touch = e.touches[0]
-        // Don't start swipe look if touch is in joystick area
-        if (!isPointInJoystick(touch.clientX, touch.clientY)) {
-          fingerLookActiveRef.current = true
-          lastFingerLookRef.current = {
-            x: touch.clientX,
-            y: touch.clientY,
-          }
-        }
-      }
+      if (e.touches.length !== 1) return
+      const touch = e.touches[0]
+      if (isInElement(joystickContainer, touch.clientX, touch.clientY)) return
+      if (isInElement(rightButtons, touch.clientX, touch.clientY)) return
+
+      fingerLookActiveRef.current = true
+      lastFingerLookRef.current = { x: touch.clientX, y: touch.clientY }
     }
 
     const handleTouchMove = (e: TouchEvent) => {
       if (!fingerLookActiveRef.current || e.touches.length !== 1) return
 
       const touch = e.touches[0]
-      const currentX = touch.clientX
-      const currentY = touch.clientY
+      const dx = touch.clientX - lastFingerLookRef.current.x
+      const dy = touch.clientY - lastFingerLookRef.current.y
 
-      const dx = currentX - lastFingerLookRef.current.x
-      const dy = currentY - lastFingerLookRef.current.y
+      lastFingerLookRef.current = { x: touch.clientX, y: touch.clientY }
 
       const sensitivity = 0.015
-
-      setMobileInput((prev) => ({
-        ...prev,
-        fingerLookX: dx * sensitivity,
-        fingerLookY: dy * sensitivity,
-      }))
-
-      lastFingerLookRef.current = { x: currentX, y: currentY }
+      // Accumulate directly — Player.tsx will consume and zero each frame
+      const d = getDeltas()
+      d.fingerLookX += dx * sensitivity
+      d.fingerLookY += dy * sensitivity
     }
 
     const handleTouchEnd = (e: TouchEvent) => {
       if (e.touches.length === 0) {
         fingerLookActiveRef.current = false
-        setMobileInput((prev) => ({
-          ...prev,
-          fingerLookX: 0,
-          fingerLookY: 0,
-        }))
       }
     }
 
@@ -290,53 +299,49 @@ export function MobileControls() {
   return (
     <div className="mobile-controls">
       {/* Joystick */}
-      <div
-        style={styles.joystickContainer}
-        ref={joystickContainerRef}
-      >
+      <div style={styles.joystickContainer} ref={joystickContainerRef}>
         <div style={styles.joystickBg}>
           <div style={styles.joystickStick} ref={joystickStickRef} />
         </div>
       </div>
 
       {/* Action Buttons */}
-      <div style={styles.rightButtonsContainer}>
-        {/* Shoot Button */}
+      <div style={styles.rightButtonsContainer} ref={rightButtonsRef}>
         <button
           style={styles.shootButton}
           onTouchStart={handleShootStart}
           onTouchEnd={handleShootEnd}
           onMouseDown={handleShootStart}
           onMouseUp={handleShootEnd}
-          title="Shoot"
         >
-          SHOOT
+          FIRE
         </button>
-
-        {/* Reload Button */}
         <button
           style={styles.reloadButton}
           onTouchStart={handleReload}
           onMouseDown={handleReload}
-          title="Reload (R)"
         >
           R
         </button>
-
-        {/* Get Button */}
         <button
           style={styles.getButton}
           onTouchStart={handleGet}
           onMouseDown={handleGet}
-          title="Get (E)"
         >
           E
         </button>
       </div>
 
-      {/* Gyro permission button (optional) */}
+      {/* iOS gyro permission */}
+      {needsGyroButton && (
+        <button style={styles.gyroPermButton} onTouchStart={(e) => { e.stopPropagation(); requestGyroPermission() }}>
+          Enable Gyro
+        </button>
+      )}
+
+      {/* Status hint */}
       <div style={styles.gyroNotice}>
-        Swipe to look • Gyro enabled
+        {gyroPermission === "granted" ? "Gyro + Swipe" : "Swipe to look"}
       </div>
     </div>
   )
@@ -351,7 +356,7 @@ const styles: Record<string, React.CSSProperties> = {
     height: "120px",
     zIndex: 10000,
     pointerEvents: "auto",
-    touchAction: "manipulation",
+    touchAction: "none",
   },
   joystickBg: {
     position: "absolute",
@@ -387,15 +392,14 @@ const styles: Record<string, React.CSSProperties> = {
     touchAction: "manipulation",
   },
   shootButton: {
-    padding: "15px 30px",
-    fontSize: "16px",
+    fontSize: "13px",
     fontWeight: "bold",
-    backgroundColor: "rgba(255, 0, 0, 0.7)",
+    backgroundColor: "rgba(255, 0, 0, 0.75)",
     color: "white",
-    border: "none",
+    border: "2px solid rgba(255,80,80,0.8)",
     borderRadius: "50%",
-    width: "60px",
-    height: "60px",
+    width: "68px",
+    height: "68px",
     cursor: "pointer",
     userSelect: "none",
     WebkitUserSelect: "none",
@@ -403,17 +407,17 @@ const styles: Record<string, React.CSSProperties> = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
+    boxShadow: "0 0 12px rgba(255,0,0,0.4)",
   },
   reloadButton: {
-    padding: "12px 24px",
-    fontSize: "12px",
+    fontSize: "14px",
     fontWeight: "bold",
-    backgroundColor: "rgba(255, 165, 0, 0.7)",
+    backgroundColor: "rgba(255, 165, 0, 0.75)",
     color: "white",
-    border: "none",
+    border: "2px solid rgba(255,200,50,0.8)",
     borderRadius: "50%",
-    width: "50px",
-    height: "50px",
+    width: "52px",
+    height: "52px",
     cursor: "pointer",
     userSelect: "none",
     WebkitUserSelect: "none",
@@ -423,15 +427,14 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: "center",
   },
   getButton: {
-    padding: "12px 24px",
-    fontSize: "12px",
+    fontSize: "14px",
     fontWeight: "bold",
-    backgroundColor: "rgba(0, 200, 100, 0.7)",
+    backgroundColor: "rgba(0, 200, 100, 0.75)",
     color: "white",
-    border: "none",
+    border: "2px solid rgba(50,255,150,0.8)",
     borderRadius: "50%",
-    width: "50px",
-    height: "50px",
+    width: "52px",
+    height: "52px",
     cursor: "pointer",
     userSelect: "none",
     WebkitUserSelect: "none",
@@ -440,14 +443,32 @@ const styles: Record<string, React.CSSProperties> = {
     alignItems: "center",
     justifyContent: "center",
   },
+  gyroPermButton: {
+    position: "fixed",
+    top: "50px",
+    left: "50%",
+    transform: "translateX(-50%)",
+    padding: "10px 20px",
+    fontSize: "14px",
+    fontWeight: "bold",
+    backgroundColor: "rgba(0, 150, 255, 0.85)",
+    color: "white",
+    border: "2px solid rgba(100,200,255,0.8)",
+    borderRadius: "8px",
+    cursor: "pointer",
+    zIndex: 10001,
+    pointerEvents: "auto",
+    touchAction: "manipulation",
+  },
   gyroNotice: {
     position: "fixed",
     top: "20px",
     left: "50%",
     transform: "translateX(-50%)",
-    fontSize: "12px",
-    color: "rgba(255, 255, 255, 0.6)",
+    fontSize: "11px",
+    color: "rgba(255, 255, 255, 0.5)",
     pointerEvents: "none",
     zIndex: 10000,
+    letterSpacing: "0.5px",
   },
 }

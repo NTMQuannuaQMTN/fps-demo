@@ -19,7 +19,7 @@ type SpawnedCrate = {
 }
 
 export function WaveManager() {
-  const [wave, setWave] = useState(1)
+  const [wave, setWaveLocal] = useState(1)
   const [zombies, setZombies] = useState<any[]>([])
   const [orbs, setOrbs] = useState<any[]>([])
   const [crates, setCrates] = useState<SpawnedCrate[]>([])
@@ -30,6 +30,9 @@ export function WaveManager() {
   const gameOver = useGameStore((s) => s.gameOver)
   const mobsLeft = useGameStore((s) => s.mobsLeft)
   const setMobsLeft = useGameStore((s) => s.setMobsLeft)
+
+  const setWave = useGameStore((s) => s.setWave)
+  const setWavePhase = useGameStore((s) => s.setWavePhase)
 
   const aliveCount = useRef(0)
   const waveTransitionInProgress = useRef(false)
@@ -105,6 +108,7 @@ export function WaveManager() {
     if (!waveFinished) return
 
     waveTransitionInProgress.current = true
+    setWavePhase("break", Date.now() + BREAK_TIME * 1000)
 
     addExp(wave * 5)
 
@@ -128,7 +132,10 @@ export function WaveManager() {
     setCrates((prev) => [...prev, ...newCrates])
 
     const timeout = setTimeout(() => {
-      setWave((w) => w + 1)
+      const nextWave = wave + 1
+      setWave(nextWave)
+      setWavePhase("fighting")
+      setWaveLocal((w) => w + 1)
       setSpawning(true)
       aliveCount.current = 0
       waveTransitionInProgress.current = false

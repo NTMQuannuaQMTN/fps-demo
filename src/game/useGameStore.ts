@@ -17,6 +17,9 @@ type GameState = {
   reloadSpeedMultiplier: number
   mobsLeft: number
   kills: number
+  wave: number
+  wavePhase: "fighting" | "break"
+  breakEndsAt: number
   lastCombatTime: number
   hitMarkerVisible: boolean
   orbProgress: number
@@ -31,6 +34,8 @@ type GameState = {
   addKill: () => void
   setWeapon: (weapon: Weapon) => void
   setReloadSpeedMultiplier: (value: number) => void
+  setWave: (wave: number) => void
+  setWavePhase: (phase: "fighting" | "break", breakEndsAt?: number) => void
   shoot: () => boolean
   reload: () => void
   recordCombatAction: () => void
@@ -53,6 +58,9 @@ export const useGameStore = create<GameState>((set, get) => ({
   reloadSpeedMultiplier: 1,
   mobsLeft: 5,
   kills: 0,
+  wave: 1,
+  wavePhase: "fighting" as const,
+  breakEndsAt: 0,
   lastCombatTime: Date.now(),
   hitMarkerVisible: false,
   orbProgress: 0,
@@ -78,6 +86,8 @@ export const useGameStore = create<GameState>((set, get) => ({
   }),
   setMobsLeft: (value) => set((s) => ({ mobsLeft: typeof value === "function" ? value(s.mobsLeft) : value })),
   addKill: () => set((s) => ({ kills: s.kills + 1 })),
+  setWave: (wave) => set({ wave }),
+  setWavePhase: (phase, breakEndsAt = 0) => set({ wavePhase: phase, breakEndsAt }),
   setWeapon: (weapon) => {
     if (reloadTimeout) {
       clearTimeout(reloadTimeout)
@@ -162,6 +172,9 @@ export const useGameStore = create<GameState>((set, get) => ({
       reloadSpeedMultiplier: 1,
       mobsLeft: 0,
       kills: 0,
+      wave: 1,
+      wavePhase: "fighting" as const,
+      breakEndsAt: 0,
       lastCombatTime: Date.now(),
       hitMarkerVisible: false,
       orbProgress: 0,
