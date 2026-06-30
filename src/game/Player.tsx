@@ -311,65 +311,55 @@ export function Player() {
                 const aimY =
                     spreadY
 
-                raycaster.setFromCamera(
-                    new THREE.Vector2(
-                        aimX,
-                        aimY
-                    ),
-                    camera
-                )
-
                 // =========================
-                // HIT DETECTION (walls stop bullets)
+                // HIT DETECTION (walls stop bullets; pierce weapons pass through)
                 // =========================
 
-                // Raycast against everything: zombie meshes + static colliders (walls, props).
-                // The first hit determines what the bullet reaches — if it's a wall, it stops there.
-                const allTargets: THREE.Object3D[] = [
-                    ...getMeshes(),
-                    ...((window as any).colliders || []),
-                ]
+                // Deduplicate targets: zombie groups appear in both getMeshes() and colliders.
+                // recursive:true so child meshes (zombie head/body) are tested.
+                const entityMeshes = getMeshes()
+                const colliderObjs = ((window as any).colliders || []) as THREE.Object3D[]
+                const allTargets = [...new Set([...entityMeshes, ...colliderObjs])]
 
-                const hits =
-                    raycaster.intersectObjects(
-                        allTargets,
-                        false
-                    )
+                raycaster.setFromCamera(new THREE.Vector2(aimX, aimY), camera)
+                const rayDir = raycaster.ray.direction.clone()
+                let rayOrigin = raycaster.ray.origin.clone()
 
-                if (hits.length > 0) {
-                    let obj:
-                        | THREE.Object3D
-                        | null =
-                        hits[0].object
+                let piercesLeft = weapon.pierceWalls ?? 0
+                let pelletHit = false
 
-                    let entity =
-                        getEntityByMesh(
-                            obj
-                        )
+                pierceLoop: for (let p = 0; p <= piercesLeft; p++) {
+                    raycaster.set(rayOrigin, rayDir)
+                    const hits = raycaster.intersectObjects(allTargets, true)
 
-                    while (
-                        !entity &&
-                        obj?.parent &&
-                        obj.parent.type !== "Scene"
-                    ) {
-                        obj = obj.parent
+                    for (const hit of hits) {
+                        let obj: THREE.Object3D | null = hit.object
+                        let entity = getEntityByMesh(obj)
 
-                        entity =
-                            getEntityByMesh(
-                                obj
-                            )
-                    }
+                        while (!entity && obj?.parent && obj.parent.type !== "Scene") {
+                            obj = obj.parent
+                            entity = getEntityByMesh(obj)
+                        }
 
-                    if (entity) {
-                        entity.hit(damagePerPellet + attackStat / weapon.pellets)
-                        hitSomething = true
-
-                        // Show pellet hit indicator for shotguns
-                        if (weapon.pellets > 1) {
-                            addPelletHit(aimX * 50, aimY * 50)
+                        if (entity) {
+                            entity.hit(damagePerPellet + attackStat / weapon.pellets)
+                            pelletHit = true
+                            break pierceLoop  // bullet stops at first zombie hit
+                        } else {
+                            // Hit a wall/prop — advance origin past it for pierce
+                            rayOrigin = hit.point.clone().addScaledVector(rayDir, 0.3)
+                            break  // restart the pierce iteration with new origin
                         }
                     }
-                    // If no entity: hit a wall/prop — bullet stops, no damage (correct)
+
+                    if (hits.length === 0) break  // nothing in path, done
+                }
+
+                if (pelletHit) {
+                    hitSomething = true
+                    if (weapon.pellets > 1) {
+                        addPelletHit(aimX * 50, aimY * 50)
+                    }
                 }
             }
 
