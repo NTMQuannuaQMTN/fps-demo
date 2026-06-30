@@ -44,6 +44,9 @@ export function Zombie({ position, onDeath }: any) {
     const dead = useRef(false)
     const nextPos = useRef(new THREE.Vector3())
     const moveDirection = useRef(new THREE.Vector3())
+    const losRaycaster = useRef(new THREE.Raycaster())
+    const lastKnownPlayerPos = useRef(new THREE.Vector3())
+    const hasLastKnown = useRef(false)
 
     const removeFromColliders = () => {
         const colliders = (window as any).colliders as THREE.Object3D[] | undefined
@@ -112,75 +115,86 @@ export function Zombie({ position, onDeath }: any) {
 
     useFrame((_, delta) => {
         if (paused || gameOver) return
-
         if (!ref.current || dead.current) return
 
         const pos = ref.current.position
         const playerPos = camera.position
-
         pos.y = GROUND_Y
-
-        const dir = moveDirection.current
-        dir.set(playerPos.x - pos.x, 0, playerPos.z - pos.z)
-
-        const dist = dir.length()
-
-        if (dist > 0) {
-            dir.normalize()
-        }
 
         const colliders = (window as any).colliders as THREE.Object3D[] | undefined
         const zombieRadius = ref.current.userData.colliderRadius ?? 0.5
 
-        const canMoveTo = (nextPos: THREE.Vector3) => {
-            if (!colliders) return true
+        // ── Direction / distance to real player ──────────────────
+        const dx = playerPos.x - pos.x
+        const dz = playerPos.z - pos.z
+        const distToPlayer = Math.sqrt(dx * dx + dz * dz)
 
+        // ── Line-of-sight check (static colliders only) ───────────
+        let canSeePlayer = false
+        if (distToPlayer > 0.5) {
+            moveDirection.current.set(dx / distToPlayer, 0, dz / distToPlayer)
+            const staticColliders = (colliders ?? []).filter(
+                (c) => c && !c.userData?.dynamicCollider && c !== ref.current
+            )
+            losRaycaster.current.set(pos, moveDirection.current)
+            losRaycaster.current.far = distToPlayer - 0.3
+            canSeePlayer = losRaycaster.current.intersectObjects(staticColliders, true).length === 0
+        }
+
+        if (canSeePlayer) {
+            lastKnownPlayerPos.current.set(playerPos.x, GROUND_Y, playerPos.z)
+            hasLastKnown.current = true
+        }
+
+        // ── Movement target (last-known pos when LOS blocked) ─────
+        const targetX = hasLastKnown.current ? lastKnownPlayerPos.current.x : pos.x
+        const targetZ = hasLastKnown.current ? lastKnownPlayerPos.current.z : pos.z
+        const moveDx = targetX - pos.x
+        const moveDz = targetZ - pos.z
+        const moveDist = Math.sqrt(moveDx * moveDx + moveDz * moveDz)
+
+        // ── Rotate group to face movement target (eyes track it) ──
+        if (moveDist > 0.05) {
+            ref.current.rotation.y = Math.atan2(moveDx, moveDz)
+        }
+
+        // ── Collision helper ─────────────────────────────────────
+        const canMoveTo = (candidate: THREE.Vector3) => {
+            if (!colliders) return true
             for (const collider of colliders) {
                 if (!collider || collider === ref.current) continue
-
                 if (collider.userData?.dynamicCollider) {
-                    const otherRadius = collider.userData.colliderRadius ?? 0.5
-
-                    if (collider.position.distanceTo(nextPos) < zombieRadius + otherRadius) {
-                        return false
-                    }
-
+                    const r = collider.userData.colliderRadius ?? 0.5
+                    if (collider.position.distanceTo(candidate) < zombieRadius + r) return false
                     continue
                 }
-
                 const box = getColliderBox(collider)
-
-                if (box.distanceToPoint(nextPos) < zombieRadius) {
-                    return false
-                }
+                if (box.distanceToPoint(candidate) < zombieRadius) return false
             }
-
             return true
         }
 
-        if (dist > 2) {
+        // ── Move toward target ────────────────────────────────────
+        if (moveDist > 2) {
             const moveStep = delta * ZOMBIE_SPEED
+            const normX = moveDx / moveDist
+            const normZ = moveDz / moveDist
 
-            nextPos.current.set(pos.x + dir.x * moveStep, GROUND_Y, pos.z)
+            nextPos.current.set(pos.x + normX * moveStep, GROUND_Y, pos.z)
+            if (canMoveTo(nextPos.current)) pos.x = nextPos.current.x
 
-            if (canMoveTo(nextPos.current)) {
-                pos.x = nextPos.current.x
-            }
-
-            nextPos.current.set(pos.x, GROUND_Y, pos.z + dir.z * moveStep)
-
-            if (canMoveTo(nextPos.current)) {
-                pos.z = nextPos.current.z
-            }
+            nextPos.current.set(pos.x, GROUND_Y, pos.z + normZ * moveStep)
+            if (canMoveTo(nextPos.current)) pos.z = nextPos.current.z
 
             pos.y = GROUND_Y
-            return
         }
 
-        const damagePerSecond = Math.max(0.8, 5 - defense * 0.2)
-
-        setHp((h) => h - damagePerSecond * delta)
-        recordCombatAction()
+        // ── Melee (only when actually adjacent to player) ─────────
+        if (distToPlayer < 2) {
+            const damagePerSecond = Math.max(0.8, 5 - defense * 0.2)
+            setHp((h) => h - damagePerSecond * delta)
+            recordCombatAction()
+        }
     })
 
     // Group center at GROUND_Y=0.9. Body sphere r=0.55 → center local y=-0.35 (bottom touches ground).

@@ -120,14 +120,22 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   shoot: () => {
     const { ammo, isReloading, gameOver } = get()
-    if (ammo <= 0 || isReloading || gameOver) return false
+    if (gameOver) return false
+    if (ammo <= 0) return false  // empty mag — can't interrupt a reload that started on empty
+
+    // Cancel in-progress reload: player has rounds, wants to shoot now
+    if (isReloading) {
+      if (reloadTimeout) {
+        clearTimeout(reloadTimeout)
+        reloadTimeout = undefined
+      }
+      set({ isReloading: false, reloadEndAt: 0 })
+    }
 
     const newAmmo = ammo - 1
     set({ ammo: newAmmo, lastCombatTime: Date.now() })
 
-    // auto-reload when ammo runs out
     if (newAmmo <= 0) {
-      // call reload from the store (will noop if already reloading)
       get().reload()
     }
 
