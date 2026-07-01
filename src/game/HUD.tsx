@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import { useGameStore } from "./useGameStore"
 import { useProgressionStore } from "./useProgressionStore"
+import { WAVE_LIMIT } from "./WaveManager"
 
 export function HUD() {
     const hp = useGameStore((s) => s.hp)
@@ -16,6 +17,7 @@ export function HUD() {
     const hitMarkerVisible = useGameStore((s) => s.hitMarkerVisible)
     const orbProgress = useGameStore((s) => s.orbProgress)
     const gameOver = useGameStore((s) => s.gameOver)
+    const gameWon = useGameStore((s) => s.gameWon)
     const survivedSeconds = useGameStore((s) => s.survivedSeconds)
     const resetGame = useGameStore((s) => s.resetGame)
     const pelletHits = useGameStore((s) => s.pelletHits)
@@ -131,7 +133,7 @@ export function HUD() {
             {/* ── TOP: WAVE INFO ────────────────────── */}
             <div style={styles.topBar}>
                 <div style={styles.waveChip}>
-                    WAVE {wave}
+                    WAVE {wave} / {WAVE_LIMIT}
                 </div>
                 {wavePhase === "break" ? (
                     <div style={styles.breakBanner}>
@@ -209,6 +211,24 @@ export function HUD() {
                     <div style={styles.emptyBadge}>EMPTY — press R</div>
                 ) : null}
             </div>
+
+            {/* ── YOU WON ───────────────────────────── */}
+            {gameWon && (
+                <div style={styles.gameOverOverlay}>
+                    <div style={{ ...styles.gameOverTitle, color: "#ffd166", textShadow: "0 0 30px rgba(255,209,102,0.8)" }}>
+                        YOU SURVIVED
+                    </div>
+                    <div style={{ ...styles.gameOverStat, color: "#ffd166" }}>
+                        All {WAVE_LIMIT} waves cleared!
+                    </div>
+                    <div style={styles.gameOverStat}>Score: <strong>{score}</strong></div>
+                    <div style={styles.gameOverStat}>Kills: <strong>{kills}</strong></div>
+                    <div style={styles.gameOverStat}>Time: <strong>{Math.round(survivedSeconds)}s</strong></div>
+                    <button style={{ ...styles.playAgainButton, color: "#ffd166", borderColor: "#ffd166", boxShadow: "0 0 20px rgba(255,209,102,0.4)" }} onClick={handlePlayAgain}>
+                        PLAY AGAIN
+                    </button>
+                </div>
+            )}
 
             {/* ── GAME OVER ─────────────────────────── */}
             {gameOver && (

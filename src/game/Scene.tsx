@@ -52,13 +52,14 @@ const crates: Array<[number, number, number]> = [
 export default function Scene() {
   const paused = useProgressionStore((s) => s.paused)
   const gameOver = useGameStore((s) => s.gameOver)
+  const gameWon = useGameStore((s) => s.gameWon)
   const sessionId = useGameStore((s) => s.sessionId)
   return (
     <Canvas
       key={sessionId}
       shadows
       camera={{ fov: 75, position: [0, 1.6, 5] }}
-      style={{ width: "100vw", height: "100vh", display: "block", pointerEvents: paused || gameOver ? "none" : "auto" }}
+      style={{ width: "100vw", height: "100vh", display: "block", pointerEvents: paused || gameOver || gameWon ? "none" : "auto" }}
     >
       {/* Sunset sky */}
       <color attach="background" args={["#ff9d5c"]} />

@@ -4,7 +4,10 @@ import * as THREE from "three"
 import { useGameStore } from "./useGameStore"
 import { useEntityStore } from "./useEntityStore"
 import { useProgressionStore } from "./useProgressionStore"
-import { playZombieGrowl } from "./audio"
+import { playZombieGrowl, playZombieFootstep } from "./audio"
+
+// Module-level temp vector to avoid per-frame allocation
+const _camFwd = new THREE.Vector3()
 
 const GROUND_Y = 0.9
 const ZOMBIE_SPEED = 2
@@ -22,8 +25,12 @@ const getColliderBox = (collider: THREE.Object3D) => {
     return box
 }
 
-export function Zombie({ position, onDeath }: any) {
+export function Zombie({ position, onDeath, wave = 1 }: any) {
     const ref = useRef<THREE.Group>(null!)
+
+    // Scale difficulty per wave
+    const zombieSpeed  = ZOMBIE_SPEED * (1 + (wave - 1) * 0.1)  // +10% each wave
+    const zombieMaxHp  = 100 + (wave - 1) * 20                   // +20 HP each wave
     const { camera } = useThree()
 
     const setHp = useGameStore((s) => s.setHp)
@@ -39,7 +46,7 @@ export function Zombie({ position, onDeath }: any) {
     const gameOver = useGameStore((s) => s.gameOver)
 
     const id = useRef(crypto.randomUUID())
-    const hp = useRef(100)
+    const hp = useRef(zombieMaxHp)
     const dead = useRef(false)
     const nextPos = useRef(new THREE.Vector3())
     const moveDirection = useRef(new THREE.Vector3())
@@ -47,6 +54,7 @@ export function Zombie({ position, onDeath }: any) {
     const lastKnownPlayerPos = useRef(new THREE.Vector3())
     const hasLastKnown = useRef(false)
     const hasAlerted = useRef(false)
+    const footstepTimer = useRef(Math.random() * 0.5)  // stagger initial footsteps
 
     const removeFromColliders = () => {
         const colliders = (window as any).colliders as THREE.Object3D[] | undefined
@@ -182,7 +190,7 @@ export function Zombie({ position, onDeath }: any) {
 
         // ── Move toward target ────────────────────────────────────
         if (moveDist > 2) {
-            const moveStep = delta * ZOMBIE_SPEED
+            const moveStep = delta * zombieSpeed
             const normX = moveDx / moveDist
             const normZ = moveDz / moveDist
 
@@ -193,6 +201,29 @@ export function Zombie({ position, onDeath }: any) {
             if (canMoveTo(nextPos.current)) pos.z = nextPos.current.z
 
             pos.y = GROUND_Y
+
+            // ── Directional footstep sound ────────────────────────
+            if (distToPlayer < 22) {
+                footstepTimer.current -= delta
+                if (footstepTimer.current <= 0) {
+                    footstepTimer.current = 0.45 + Math.random() * 0.25
+
+                    // Compute stereo pan: positive = zombie is to the right of camera
+                    camera.getWorldDirection(_camFwd)
+                    _camFwd.y = 0
+                    _camFwd.normalize()
+                    const rightX = -_camFwd.z
+                    const rightZ = _camFwd.x
+                    // direction from player to zombie
+                    const toPx = -dx / distToPlayer
+                    const toPz = -dz / distToPlayer
+                    const pan = rightX * toPx + rightZ * toPz
+
+                    // Volume falls off quadratically with distance
+                    const vol = Math.max(0, (1 - distToPlayer / 22) ** 2)
+                    playZombieFootstep(pan, vol)
+                }
+            }
         }
 
         // ── Melee (only when actually adjacent to player) ─────────

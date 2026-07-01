@@ -24,6 +24,7 @@ type GameState = {
   hitMarkerVisible: boolean
   orbProgress: number
   gameOver: boolean
+  gameWon: boolean
   startTime: number
   survivedSeconds: number
   sessionId: number
@@ -40,6 +41,7 @@ type GameState = {
   reload: () => void
   recordCombatAction: () => void
   flashHitMarker: () => void
+  setGameWon: () => void
   setOrbProgress: (value: number) => void
   addPelletHit: (x: number, y: number) => void
   removePelletHit: (id: string) => void
@@ -65,6 +67,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   hitMarkerVisible: false,
   orbProgress: 0,
   gameOver: false,
+  gameWon: false,
   startTime: Date.now(),
   survivedSeconds: 0,
   sessionId: 0,
@@ -102,6 +105,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     set({ hitMarkerVisible: true })
     hitMarkerTimeout = setTimeout(() => set({ hitMarkerVisible: false }), 120)
   },
+  setGameWon: () => set((s) => ({ gameWon: true, survivedSeconds: (Date.now() - s.startTime) / 1000 })),
   setOrbProgress: (value) => set({ orbProgress: Math.max(0, Math.min(1, value)) }),
 
   addPelletHit: (x: number, y: number) => {
@@ -187,6 +191,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       hitMarkerVisible: false,
       orbProgress: 0,
       gameOver: false,
+      gameWon: false,
       startTime: Date.now(),
       survivedSeconds: 0,
       sessionId: s.sessionId + 1,

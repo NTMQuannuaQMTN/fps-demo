@@ -5,6 +5,7 @@ import * as THREE from "three"
 import { useGameStore } from "./useGameStore"
 import { useEntityStore } from "./useEntityStore"
 import { useProgressionStore } from "./useProgressionStore"
+import { playGunShot, getGunType } from "./audio"
 
 export function Player() {
     const { camera } = useThree()
@@ -283,6 +284,7 @@ export function Player() {
             if (!shoot()) return
 
             lastShotAt.current = now
+            playGunShot(getGunType(weapon))
 
             const raycaster =
                 raycasterRef.current
@@ -325,13 +327,20 @@ export function Player() {
                 const rayDir = raycaster.ray.direction.clone()
                 let rayOrigin = raycaster.ray.origin.clone()
 
+                // piercesLeft is shared between wall and entity pierces.
+                // Each thing the bullet passes through (wall OR zombie) costs 1 pierce.
                 let piercesLeft = weapon.pierceWalls ?? 0
                 let pelletHit = false
+                const hitEntityIds = new Set<string>()  // avoid double-hitting same zombie
 
-                pierceLoop: for (let p = 0; p <= piercesLeft; p++) {
+                let keepShooting = true
+                while (keepShooting) {
                     raycaster.set(rayOrigin, rayDir)
                     const hits = raycaster.intersectObjects(allTargets, true)
 
+                    if (hits.length === 0) break
+
+                    let advanced = false
                     for (const hit of hits) {
                         let obj: THREE.Object3D | null = hit.object
                         let entity = getEntityByMesh(obj)
@@ -342,17 +351,37 @@ export function Player() {
                         }
 
                         if (entity) {
+                            // Skip already-hit zombie (avoid re-hitting after pierce)
+                            const eid = (entity as any).id as string
+                            if (hitEntityIds.has(eid)) continue
+                            hitEntityIds.add(eid)
+
                             entity.hit(damagePerPellet + attackStat / weapon.pellets)
                             pelletHit = true
-                            break pierceLoop  // bullet stops at first zombie hit
+
+                            if (piercesLeft > 0) {
+                                piercesLeft--
+                                // Advance further past the zombie body (sphere r≈0.55)
+                                rayOrigin = hit.point.clone().addScaledVector(rayDir, 0.8)
+                                advanced = true
+                            } else {
+                                keepShooting = false
+                            }
+                            break
                         } else {
-                            // Hit a wall/prop — advance origin past it for pierce
-                            rayOrigin = hit.point.clone().addScaledVector(rayDir, 0.3)
-                            break  // restart the pierce iteration with new origin
+                            // Wall / prop hit
+                            if (piercesLeft > 0) {
+                                piercesLeft--
+                                rayOrigin = hit.point.clone().addScaledVector(rayDir, 0.3)
+                                advanced = true
+                            } else {
+                                keepShooting = false
+                            }
+                            break
                         }
                     }
 
-                    if (hits.length === 0) break  // nothing in path, done
+                    if (!advanced) keepShooting = false
                 }
 
                 if (pelletHit) {

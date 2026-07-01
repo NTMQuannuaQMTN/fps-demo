@@ -6,7 +6,8 @@ import { useProgressionStore } from "./useProgressionStore"
 import { Crate } from "./Crate"
 import * as THREE from "three"
 
-const BREAK_TIME = 10
+export const WAVE_LIMIT = 10          // survive this many waves to win
+const BASE_BREAK_TIME = 10            // seconds, shrinks each wave
 const ZOMBIE_GROUND_Y = 0.9
 const CRATE_LIFETIME = 180
 const CRATE_SPAWN_MIN = 2
@@ -46,6 +47,8 @@ export function WaveManager() {
 
   const setWave = useGameStore((s) => s.setWave)
   const setWavePhase = useGameStore((s) => s.setWavePhase)
+  const setGameWon = useGameStore((s) => s.setGameWon)
+  const gameWon = useGameStore((s) => s.gameWon)
 
   const aliveCount = useRef(0)
   const waveTransitionInProgress = useRef(false)
@@ -62,7 +65,7 @@ export function WaveManager() {
 
   // 🧟 SPAWN LOGIC
   useEffect(() => {
-    if (!spawning || paused || gameOver) return
+    if (!spawning || paused || gameOver || gameWon) return
 
     const total = wave * 5
     let spawned = 0
@@ -118,51 +121,62 @@ export function WaveManager() {
 
   // 🧠 WAVE TRANSITION (SINGLE SOURCE OF TRUTH)
   useEffect(() => {
-    if (waveTransitionInProgress.current || gameOver) return
+    if (waveTransitionInProgress.current || gameOver || gameWon) return
 
     const waveFinished = !spawning && mobsLeft === 0
 
     if (!waveFinished) return
 
     waveTransitionInProgress.current = true
-    setWavePhase("break", Date.now() + BREAK_TIME * 1000)
+
+    // Break time shrinks by 0.5s each wave, minimum 5s
+    const breakTime = Math.max(5, BASE_BREAK_TIME - (wave - 1) * 0.5)
+    setWavePhase("break", Date.now() + breakTime * 1000)
 
     addExp(wave * 5)
 
-    // 📦 SPAWN CRATES (1-2 random crates)
+    // 📦 SPAWN CRATES (2-4 per wave break)
     const cratesToSpawn = Math.floor(Math.random() * (CRATE_SPAWN_MAX - CRATE_SPAWN_MIN + 1)) + CRATE_SPAWN_MIN
     const newCrates: SpawnedCrate[] = []
-    
+
     for (let i = 0; i < cratesToSpawn; i++) {
       const angle = Math.random() * Math.PI * 2
       const dist = 15 + Math.random() * 20
       const x = Math.cos(angle) * dist
       const z = Math.sin(angle) * dist
-      
+
       newCrates.push({
         id: crypto.randomUUID(),
         position: [x, 0.6, z],
         createdAt: Date.now(),
       })
     }
-    
+
     setCrates((prev) => [...prev, ...newCrates])
 
     const timeout = setTimeout(() => {
       const nextWave = wave + 1
+
+      // Win condition: player cleared the last wave
+      if (nextWave > WAVE_LIMIT) {
+        setGameWon()
+        waveTransitionInProgress.current = false
+        return
+      }
+
       setWave(nextWave)
       setWavePhase("fighting")
       setWaveLocal((w) => w + 1)
       setSpawning(true)
       aliveCount.current = 0
       waveTransitionInProgress.current = false
-    }, BREAK_TIME * 1000)
+    }, breakTime * 1000)
 
     return () => {
       clearTimeout(timeout)
       waveTransitionInProgress.current = false
     }
-  }, [spawning, mobsLeft, gameOver, wave, addExp])
+  }, [spawning, mobsLeft, gameOver, gameWon, wave, addExp, setGameWon])
 
   return (
     <>
@@ -171,6 +185,7 @@ export function WaveManager() {
         <Zombie
           key={z.id}
           position={z.position}
+          wave={wave}
           onDeath={() => {
             setZombies((prev) =>
               prev.filter((p) => p.id !== z.id)
